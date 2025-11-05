@@ -21,8 +21,8 @@
         icon: CCTV,
       },
       {
-        name: "Settings",
-        url: "/settings",
+        name: "Area Settings",
+        url: "/area-settings",
         icon: Settings2Icon,
       },
     ],

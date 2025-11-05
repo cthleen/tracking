@@ -14,7 +14,7 @@
   const titles: Record<string, string> = {
     '/dashboard': 'Dashboard',
     '/store-feeds': 'Store Feeds',
-    '/settings': 'Settings'
+    '/area-settings': 'Area Settings'
   };
 
   const pageTitle = derived(page, $page => {
