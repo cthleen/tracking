@@ -10,6 +10,7 @@
   import LineChart from "./charts/activity-chart.svelte";
   import PieChart from "./charts/pie-chart.svelte";
   import BarChart from "./charts/bar-chart.svelte";
+  import DataCard from "./charts/data-card.svelte";
 
   const titles: Record<string, string> = {
     '/dashboard': 'Dashboard',
@@ -54,7 +55,7 @@
         <!-- <BarChart data={data.peakHoursData || []} title="Peak Hours Analysis" /> -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <PieChart locationData={data.locationData} title="Popular Area" />
-            <!-- <PieChart locationData={data.locationData?.slice(0, 5)} title="Top 5 Popular Spots" /> -->
+            <DataCard processedData={data.processedData} title="Recent Activity" />
         </div>
       </div>
     </div>
