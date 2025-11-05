@@ -53,7 +53,7 @@
         <LineChart {data}/>
         <!-- <BarChart data={data.peakHoursData || []} title="Peak Hours Analysis" /> -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <PieChart locationData={data.locationData} title="All Popular Spots" />
+            <PieChart locationData={data.locationData} title="Popular Area" />
             <!-- <PieChart locationData={data.locationData?.slice(0, 5)} title="Top 5 Popular Spots" /> -->
         </div>
       </div>

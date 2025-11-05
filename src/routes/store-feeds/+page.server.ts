@@ -2,13 +2,12 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
     setHeaders({
-        'cache-control': 'public, max-age=60' // Cache for 1 minute
+        'cache-control': 'public, max-age=60'
     });
 
     try {
         const baseUrl = "http://localhost:8000";
 
-        // Fetch all locations first
         const locationsApiUrl = `${baseUrl}/api/location`;
         const locationsRes = await fetch(locationsApiUrl);
 
@@ -25,7 +24,6 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
 
         console.log(`Found ${locations.length} locations for store feeds`);
 
-        // Calculate today's date range
         const now = new Date();
         now.setUTCFullYear(2024);
         const todayUTC = new Date(Date.UTC(
@@ -42,7 +40,6 @@ export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
         ));
         const end = endOfDayUTC.toISOString();
 
-        // Fetch today's gender counts from all locations
         let totalMale = 0;
         let totalFemale = 0;
 
