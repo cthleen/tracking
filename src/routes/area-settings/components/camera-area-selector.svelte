@@ -2,7 +2,12 @@
   import { onMount, onDestroy, tick, createEventDispatcher } from "svelte";
   import { browser } from "$app/environment";
 
-  const dispatch = createEventDispatcher();
+  const dispatch = createEventDispatcher<{
+    locationSelected: { x1: number; y1: number; x2: number; y2: number };
+    locationLoaded: { x1: number; y1: number; x2: number; y2: number };
+    locationCleared: void;
+    scroll: void;
+  }>();
 
   let video: HTMLVideoElement;
   let canvas: HTMLCanvasElement;
@@ -174,8 +179,8 @@
 </script>
 
 <div class="relative w-full max-w-2xl mx-auto">
-  <video bind:this={video} autoplay playsinline muted class="rounded-lg w-full"></video>
-  <canvas bind:this={canvas} class="absolute top-0 left-0 touch-none w-full h-full"></canvas>
+  <video bind:this={video} autoplay playsinline muted class="rounded-lg w-full" on:scroll={() => dispatch("scroll")}></video>
+  <canvas bind:this={canvas} class="absolute top-0 left-0 touch-none w-full h-full" on:scroll={() => dispatch("scroll")}></canvas>
 </div>
 
 <div class="mt-2 flex justify-end">
