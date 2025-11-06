@@ -1,14 +1,14 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { derived } from 'svelte/store';
-  import { onMount } from 'svelte';
   import AppSidebar from "$lib/components/app-sidebar.svelte";
   import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
   import { LightSwitch } from "$lib/components/ui/light-switch";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+  import { onMount } from 'svelte';
+  import { derived } from 'svelte/store';
 
-  import CameraFeed from './components/camera-feed.svelte'; 
+  import CameraFeed from './components/camera-feed.svelte';
   import StatisticsCard from './components/statistic-card.svelte';
 
   export let data;
@@ -44,55 +44,55 @@
     }
   }
 
-  onMount(async () => {
-    await fetchLocations();
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      videoElementA.srcObject = stream;
-    } catch (err) {
-      console.error(err);
-    }
-
-    const interval = setInterval(() => (time = new Date().toLocaleTimeString()), 1000);
-    return () => clearInterval(interval);
-  });
-
   // onMount(async () => {
-  //   const pc = new RTCPeerConnection();
-  //   pc.addTransceiver('video', { direction: 'recvonly' });
-  //   pc.addTransceiver('audio', { direction: 'recvonly' });
+  //   await fetchLocations();
 
-  //   pc.ontrack = (event) => {
-  //     videoElement.srcObject = event.streams[0];
+  //   try {
+  //     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  //     videoElementA.srcObject = stream;
+  //   } catch (err) {
+  //     console.error(err);
   //   }
 
-  //   const offer = await pc.createOffer();
-  //   await pc.setLocalDescription(offer);
+  //   const interval = setInterval(() => (time = new Date().toLocaleTimeString()), 1000);
+  //   return () => clearInterval(interval);
+  // });
+
+  onMount(async () => {
+    const pc = new RTCPeerConnection();
+    pc.addTransceiver('video', { direction: 'recvonly' });
+    pc.addTransceiver('audio', { direction: 'recvonly' });
+
+    pc.ontrack = (event) => {
+      videoElementA.srcObject = event.streams[0];
+    }
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
     
-  //   await new Promise<void>((resolve) => {
-  //     if (pc.iceGatheringState === "complete") {
-  //       resolve();
-  //     } else {
-  //       const checkState = () => {
-  //         if (pc.iceGatheringState === "complete") {
-  //           pc.removeEventListener("icegatheringstatechange", checkState);
-  //           resolve();
-  //         }
-  //       }
-  //       pc.addEventListener("icegatheringstatechange", checkState);
-  //     }
-  //   })
+    await new Promise<void>((resolve) => {
+      if (pc.iceGatheringState === "complete") {
+        resolve();
+      } else {
+        const checkState = () => {
+          if (pc.iceGatheringState === "complete") {
+            pc.removeEventListener("icegatheringstatechange", checkState);
+            resolve();
+          }
+        }
+        pc.addEventListener("icegatheringstatechange", checkState);
+      }
+    })
 
-  //   const response = await fetch("http://localhost:9876/offer", { // change with WebRTC server
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify(pc.localDescription)
-  //   })
+    const response = await fetch("http://localhost:9876/offer", { // change with WebRTC server
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pc.localDescription)
+    })
 
-  //   const answer = await response.json();
-  //   await pc.setRemoteDescription(answer);
-  // }) 
+    const answer = await response.json();
+    await pc.setRemoteDescription(answer);
+  }) 
 </script>
 
 <Sidebar.Provider>

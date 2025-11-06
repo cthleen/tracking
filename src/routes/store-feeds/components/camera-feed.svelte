@@ -102,7 +102,10 @@
   </div>
 
   <div class="relative w-full">
-    <video bind:this={videoElement} autoplay playsinline muted class="rounded-lg w-full"></video>
+    <!-- <video bind:this={videoElement} autoplay playsinline muted class="rounded-lg w-full"></video> -->
+    <video bind:this={videoElement} autoplay playsinline muted>
+      <track kind="captions">
+    </video>
 
     <canvas
       bind:this={canvasElement}
@@ -111,15 +114,12 @@
     ></canvas>
 
     <!-- Keep commented code -->
-    <!-- <video bind:this={videoElement} autoplay playsinline muted>
-      <track kind="captions">
-    </video> -->
     <!-- <div class="bg-black rounded-lg aspect-video flex items-center justify-center text-gray-400">
       CCTV A Placeholder
     </div> -->
   </div>
 
   <!-- Display FPS -->
-  <div class="mt-2 text-sm text-green-600 font-bold">FPS: {fps}</div>
+  <!-- <div class="mt-2 text-sm text-green-600 font-bold">FPS: {fps}</div> -->
 </div>
   
