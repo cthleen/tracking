@@ -16,13 +16,38 @@
 	];
 
 	function update({ detail }) {
-		x1 = detail.x1; y1 = detail.y1; x2 = detail.x2; y2 = detail.y2;
+		x1 = detail.x1;
+		y1 = detail.y1;
+		x2 = detail.x2;
+		y2 = detail.y2;
+		// logMissingFields();
 	}
-	function clear() { x1 = y1 = x2 = y2 = ""; }
+
+	function clear() {
+		x1 = y1 = x2 = y2 = "";
+		// logMissingFields();
+	}
 	
 	function handleCameraChange() {
 		clear();
 	}
+
+	// function logMissingFields() {
+	// 	const missing = [];
+	// 	if (!locationName) missing.push("locationName");
+	// 	if (!x1) missing.push("x1");
+	// 	if (!y1) missing.push("y1");
+	// 	if (!x2) missing.push("x2");
+	// 	if (!y2) missing.push("y2");
+
+	// 	if (missing.length > 0) {
+	// 		console.warn("Missing fields:", missing.join(", "));
+	// 	} else {
+	// 		console.log("All fields filled, ready to submit.");
+	// 	}
+	// }
+
+	// $: logMissingFields();
 </script>
 
 <div class="bg-muted/50 rounded-xl p-6">
@@ -32,7 +57,12 @@
 		<div class="flex gap-3 mb-4">
 			<div class="flex-1">
 				<label class="text-sm font-medium mb-2 block">Area Name</label>
-				<Input name="name" placeholder="Area name" bind:value={locationName} class="w-full" />
+				<Input
+					name="name"
+					placeholder="Area name"
+					bind:value={locationName}
+					class="w-full"
+				/>
 			</div>
 
 			<div class="flex-1">
@@ -48,7 +78,6 @@
 							<option value={cam.id}>{cam.name}</option>
 						{/each}
 					</select>
-			
 					<svg
 						class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
 						xmlns="http://www.w3.org/2000/svg"
@@ -67,10 +96,10 @@
 		<div class="mt-4 mb-4">
 			<CameraLocationSelector
 				{cameraId}
-				on:location-selected={update}
-				on:location-loaded={update}
-				on:location-cleared={clear}
-			/>
+				on:locationSelected={update}
+				on:locationLoaded={update}
+				on:locationCleared={clear}
+				/>
 		</div>
 
 		<input type="hidden" name="x1" value={x1}/>
@@ -81,5 +110,9 @@
 		<Button type="submit" class="w-full" disabled={!locationName || !x1}>
 			Add Area
 		</Button>
+
+		<!-- <p class="text-xs text-muted-foreground mt-3">
+			Debug → x1: {x1}, y1: {y1}, x2: {x2}, y2: {y2}, name: "{locationName}"
+		</p> -->
 	</form>
 </div>

@@ -80,12 +80,15 @@
 
 			const updatedLocation = await res.json();
 
-			const idx = locations.findIndex(l => l.id === editingLocation.id);
+			const idx = locations.findIndex(l => Number(l.id) === Number(editingLocation.id));
+			if (idx !== -1) {
+			const merged = { ...locations[idx], ...updatedLocation };
 			locations = [
 				...locations.slice(0, idx),
-				updatedLocation,
+				merged,
 				...locations.slice(idx + 1)
 			];
+			}
 
 			form = { success: 'Location updated!' };
 			cancelEditing();
