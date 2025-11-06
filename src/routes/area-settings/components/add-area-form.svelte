@@ -19,6 +19,10 @@
 		x1 = detail.x1; y1 = detail.y1; x2 = detail.x2; y2 = detail.y2;
 	}
 	function clear() { x1 = y1 = x2 = y2 = ""; }
+	
+	function handleCameraChange() {
+		clear();
+	}
 </script>
 
 <div class="bg-muted/50 rounded-xl p-6">
@@ -37,7 +41,8 @@
 					<select
 						name="camera_id"
 						bind:value={cameraId}
-						class="w-full appearance-none rounded-md border border-input bg-background text-foreground px-3 pr-8 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+						on:change={handleCameraChange}
+						class="w-full appearance-none rounded-md border-2 border-input bg-background text-foreground px-3 pr-8 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
 					>
 						{#each cameras as cam}
 							<option value={cam.id}>{cam.name}</option>
@@ -61,6 +66,7 @@
 		<label class="text-sm font-medium mb-2 block">Select Area on Camera</label>
 		<div class="mt-4 mb-4">
 			<CameraLocationSelector
+				{cameraId}
 				on:location-selected={update}
 				on:location-loaded={update}
 				on:location-cleared={clear}

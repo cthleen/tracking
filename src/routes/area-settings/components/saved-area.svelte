@@ -25,7 +25,7 @@
 			y1: loc.y1,
 			x2: loc.x2,
 			y2: loc.y2,
-			camera_id: loc.camera_id || 1
+			camera_id: Number(loc.camera_id)
 		};
 		showModal = true;
 	}
@@ -125,8 +125,11 @@
 					<div>
 						<p class="font-medium">{loc.name}</p>
 						<p class="text-xs text-muted-foreground">
-							x1: {loc.x1}, y1: {loc.y1}, x2: {loc.x2}, y2: {loc.y2}
-							<!-- , Camera: {Number(loc.camera_id)} -->
+							<!-- Camera: {loc.camera_id ?? "-"},  -->
+							x1: {loc.x1}, 
+							y1: {loc.y1}, 
+							x2: {loc.x2}, 
+							y2: {loc.y2}
 						</p>
 					</div>
 					<div class="flex gap-2 items-center">
@@ -151,11 +154,11 @@
 	{/if}
 </div>
 
-<!-- Edit Modal -->
-{#if showModal}
+<!-- edit modal -->
+{#if showModal} 
 	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" on:click={cancelEditing}>
-		<div class="bg-background rounded-xl border border-input shadow-lg max-w-5xl w-full max-h-[95vh] flex flex-col" on:click|stopPropagation>
-			<div class="sticky top-0 bg-background border-b px-6 py-4 flex justify-between items-center flex-shrink-0">
+		<div class="bg-background rounded-lg border-2 border-border shadow-xl max-w-5xl w-full max-h-[95vh] flex flex-col overflow-hidden" on:click|stopPropagation>
+			<div class="bg-background border-b-2 border-border px-6 py-4 flex justify-between items-center flex-shrink-0">
 				<h2 class="text-xl font-bold">Edit Area</h2>
 				<button
 					type="button"
@@ -175,17 +178,21 @@
 						</div>
 
 						<div class="flex-1">
-							<label class="text-sm font-medium mb-2 block">Camera Selection</label>
+							<label class="text-sm font-medium mb-2 block">
+								Camera Selection
+							</label>
 							<div class="relative">
 								<select
 									bind:value={editForm.camera_id}
-									class="w-full appearance-none rounded-md border border-input bg-background text-foreground px-3 pr-8 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+									on:change={() => {
+										editForm.x1 = editForm.y1 = editForm.x2 = editForm.y2 = "";
+									}}
+									class="w-full appearance-none rounded-md border-2 border-input bg-background text-foreground px-3 pr-8 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
 								>
-									<option value="1">Camera 1</option>
-									<option value="2">Camera 2</option>
+									<option value={1}>Camera 1</option>
+									<option value={2}>Camera 2</option>
 								</select>
 						
-								<!-- Custom dropdown arrow -->
 								<svg
 									class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
 									xmlns="http://www.w3.org/2000/svg"
@@ -197,7 +204,7 @@
 									<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
 								</svg>
 							</div>
-						</div>						
+						</div>																
 					</div>
 
 					<div>
@@ -209,6 +216,7 @@
 							initialY1={editForm.y1}
 							initialX2={editForm.x2}
 							initialY2={editForm.y2}
+							cameraId={editForm.camera_id}
 							on:scroll={handleScroll}
 						/>
 					</div>
