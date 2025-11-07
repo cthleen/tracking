@@ -61,6 +61,33 @@
     }
   }
 
+  async function connectToCamera(cameraId: number, videoElement: HTMLVideoElement) {
+    const pc = new RTCPeerConnection();
+    pc.addTransceiver('video', { direction: 'recvonly' });
+
+    pc.ontrack = (event) => {
+      videoElement.srcObject = event.streams[0];
+    };
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    const response = await fetch(`http://localhost:9876/offer?camera_id=${cameraId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sdp: pc.localDescription?.sdp,
+        type: pc.localDescription?.type,
+      }),
+    });
+
+    // Receive answer from AI backend
+    const answer = await response.json();
+    await pc.setRemoteDescription(answer);
+
+    console.log(`Connected to AI camera stream: ${cameraId}`);
+  }
+
   async function initializeCamera1() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -93,7 +120,9 @@
     await fetchLocations();
 
     await Promise.all([
-      initializeCamera1(),
+      connectToCamera(1, videoElement1),
+      connectToCamera(2, videoElement2)
+      // initializeCamera1(),
       // initializeCamera2()
     ]);
 
