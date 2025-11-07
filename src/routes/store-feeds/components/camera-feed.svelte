@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
 
+  // Props
   export let cameraName: string;
   export let videoElement: HTMLVideoElement;
   export let canvasElement: HTMLCanvasElement;
@@ -16,12 +17,15 @@
     camera_id?: string;
   }[] = [];
 
+  // Canvas context
   let ctx: CanvasRenderingContext2D;
   
+  // FPS tracking
   let frameCount = 0;
   let lastTime = performance.now();
   let animationFrameId: number;
 
+  // Style constants
   const STYLES = {
     box: {
       strokeColor: "lime",
@@ -43,6 +47,7 @@
     const newWidth = videoElement.videoWidth * ratio;
     const newHeight = videoElement.videoHeight * ratio;
 
+    // Only resize if dimensions changed
     if (canvasElement.width !== newWidth || canvasElement.height !== newHeight) {
       canvasElement.width = newWidth;
       canvasElement.height = newHeight;
@@ -60,15 +65,19 @@
     const width = location.x2 - location.x1;
     const height = location.y2 - location.y1;
 
+    // Skip invalid boxes
     if (width <= 0 || height <= 0) return;
 
+    // Draw rectangle
     ctx.strokeStyle = STYLES.box.strokeColor;
     ctx.lineWidth = STYLES.box.lineWidth;
     ctx.strokeRect(location.x1, location.y1, width, height);
 
+    // Draw semi-transparent fill
     ctx.fillStyle = STYLES.box.fillColor;
     ctx.fillRect(location.x1, location.y1, width, height);
 
+    // Draw label
     drawLabel(location.name, location.x1, location.y1);
   }
 
@@ -84,11 +93,14 @@
     const textWidth = textMetrics.width;
     const textHeight = 16;
 
+    // Position label above or below box depending on space
     const boxY = y - textHeight - 4 < 0 ? y + 2 : y - textHeight - 4;
 
+    // Draw label background
     ctx.fillStyle = STYLES.label.backgroundColor;
     ctx.fillRect(x, boxY, textWidth + padding * 2, textHeight + padding);
 
+    // Draw label text
     ctx.fillStyle = STYLES.label.textColor;
     ctx.fillText(text, x + padding, boxY + padding / 2);
   }
@@ -107,11 +119,19 @@
   function draw() {
     if (!ctx || !canvasElement || !videoElement) return;
 
+    // Check and resize canvas if needed
     resizeCanvas();
+
+    // Clear canvas
     ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+    // Draw all location bounding boxes
     locations.forEach(drawBoundingBox);
+
+    // Calculate FPS
     calculateFPS();
 
+    // Continue animation loop
     animationFrameId = requestAnimationFrame(draw);
   }
 
@@ -128,6 +148,7 @@
       return;
     }
 
+    // Start drawing loop
     animationFrameId = requestAnimationFrame(draw);
   }
 
@@ -136,6 +157,7 @@
   });
 
   onDestroy(() => {
+    // Cancel animation frame
     if (animationFrameId) {
       cancelAnimationFrame(animationFrameId);
     }
@@ -143,11 +165,13 @@
 </script>
 
 <div class="col-span-2 bg-muted/50 rounded-xl p-4 flex flex-col gap-2">
+  <!-- Header -->
   <div class="flex justify-between items-center">
     <h2 class="font-semibold text-lg">{cameraName}</h2>
     <span class="text-sm text-gray-500">{time}</span>
   </div>
 
+  <!-- Video Container - Simple, no interaction -->
   <div class="relative w-full">
     <video 
       bind:this={videoElement} 
@@ -161,13 +185,8 @@
 
     <canvas
       bind:this={canvasElement}
-      class="absolute top-0 left-0 rounded-lg"
-      style="width: {videoElement?.clientWidth || 0}px; height: {videoElement?.clientHeight || 0}px;"
+      class="absolute top-0 left-0 w-full h-full rounded-lg"
+      style="pointer-events: none;"
     />
   </div>
-
-  <!-- FPS Display (optional, uncomment if needed) -->
-  <!-- <div class="mt-2 text-sm text-green-600 font-bold">
-    FPS: {fps}
-  </div> -->
 </div>

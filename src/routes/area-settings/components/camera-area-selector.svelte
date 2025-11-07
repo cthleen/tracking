@@ -81,8 +81,6 @@
         throw new Error("No camera devices found");
       }
 
-      // Camera 1 = first device (usually laptop webcam)
-      // Camera 2 = second device (if exists)
       const deviceIndex = cameraId - 1;
 
       if (deviceIndex >= videoDevices.length) {
@@ -147,19 +145,26 @@
 
     const videoRect = video.getBoundingClientRect();
     
+    // Set canvas resolution to match video resolution
     canvas.width = videoWidth;
     canvas.height = videoHeight;
 
+    // Set canvas display size to match video element
     canvas.style.width = videoRect.width + "px";
     canvas.style.height = videoRect.height + "px";
 
-    ctx?.setTransform(
-      videoRect.width / videoWidth, 0,
-      0, videoRect.height / videoHeight,
-      0, 0
-    );
+    // IMPORTANT: Don't use transform - keep identity matrix
+    // This makes coordinates 1:1 with canvas resolution
+    if (ctx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
     
-    console.log('Canvas resized:', { videoWidth, videoHeight, rectWidth: videoRect.width, rectHeight: videoRect.height });
+    console.log('Canvas resized:', { 
+      videoWidth, 
+      videoHeight, 
+      displayWidth: videoRect.width, 
+      displayHeight: videoRect.height 
+    });
   }
 
   function startDrawLoop() {
@@ -209,14 +214,24 @@
     return { x, y, w, h };
   };
 
+  // FIXED: Convert mouse position to canvas coordinates correctly
   const pos = (e: any) => {
-    if (!canvas) return { x: 0, y: 0 };
+    if (!canvas || !video) return { x: 0, y: 0 };
     
     const p = e.touches?.[0] || e;
-    const r = canvas.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    // Get mouse position relative to canvas display
+    const mouseX = p.clientX - canvasRect.left;
+    const mouseY = p.clientY - canvasRect.top;
+    
+    // Convert from display coordinates to canvas resolution coordinates
+    const scaleX = canvas.width / canvasRect.width;
+    const scaleY = canvas.height / canvasRect.height;
+    
     return {
-      x: (p.clientX - r.left) * (canvas.width / r.width),
-      y: (p.clientY - r.top) * (canvas.height / r.height)
+      x: mouseX * scaleX,
+      y: mouseY * scaleY
     };
   };
 
