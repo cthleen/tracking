@@ -52,14 +52,14 @@
     </div>
 
     <div class="bg-background/50 rounded-lg p-3 border">
-      <div class="text-xs text-muted-foreground uppercase tracking-wide mb-2">Active Area</div>
+      <div class="text-xs text-muted-foreground uppercase tracking-wide mb-2">Area List</div>
       <div class="space-y-1">
         {#each locations as location}
           <div class="flex justify-between items-center text-sm">
             <span class="truncate flex-1">{location.name}</span>
-            <span class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 font-medium">
+            <!-- <span class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 font-medium">
               Active
-            </span>
+            </span> -->
           </div>
         {/each}
         {#if locations.length === 0}
@@ -68,4 +68,4 @@
       </div>
     </div>
   </div>
-</div>
+</div>  

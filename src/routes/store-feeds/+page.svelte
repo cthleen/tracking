@@ -13,16 +13,26 @@
 
   export let data;
 
-  let maleCount = data.genderData?.male || 0;
-  let femaleCount = data.genderData?.female || 0;
+  // State untuk Camera 1
+  let videoElement1: HTMLVideoElement;
+  let canvasElement1: HTMLCanvasElement;
+  let fps1 = 0;
+  let locations1: any[] = [];
+
+  // State untuk Camera 2
+  let videoElement2: HTMLVideoElement;
+  let canvasElement2: HTMLCanvasElement;
+  let fps2 = 0;
+  let locations2: any[] = [];
+
   let time = new Date().toLocaleTimeString();
+  let maleCount1 = 0;
+  let femaleCount1 = 0;
+  let maleCount2 = 0;
+  let femaleCount2 = 0;
 
-  let videoElementA: HTMLVideoElement;
-  let canvasElementA: HTMLCanvasElement;
-  let fpsA = 0;
-  let fpsB = 0;
-
-  let locations: any[] = [];
+  const CAMERA_1_ID = 1;
+  const CAMERA_2_ID = 2;
 
   const titles: Record<string, string> = {
     '/dashboard': 'Dashboard',
@@ -36,63 +46,83 @@
     try {
       const res = await fetch('http://localhost:8000/api/location');
       const result = await res.json();
+      
       if (result.status && result.data) {
-        locations = result.data;
+        const allLocations = result.data;
+        
+        locations1 = allLocations.filter((loc: any) => loc.camera_id === CAMERA_1_ID);
+        locations2 = allLocations.filter((loc: any) => loc.camera_id === CAMERA_2_ID);
+        
+        console.log('Camera 1 locations:', locations1.length);
+        console.log('Camera 2 locations:', locations2.length);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Error fetching locations:', err);
     }
   }
 
-  // onMount(async () => {
-  //   await fetchLocations();
+  async function initializeCamera1() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: false 
+      });
+      videoElement1.srcObject = stream;
+    } catch (err) {
+      console.error('Error initializing Camera 1:', err);
+    }
+  }
 
-  //   try {
-  //     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  //     videoElementA.srcObject = stream;
-  //   } catch (err) {
-  //     console.error(err);
-  //   }
+  async function initializeCamera2() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: false 
+      });
+      videoElement2.srcObject = stream;
+    } catch (err) {
+      console.error('Error initializing Camera 2:', err);
+    }
+  }
 
-  //   const interval = setInterval(() => (time = new Date().toLocaleTimeString()), 1000);
-  //   return () => clearInterval(interval);
-  // });
+  function updateClock() {
+    time = new Date().toLocaleTimeString();
+  }
 
   onMount(async () => {
-    const pc = new RTCPeerConnection();
-    pc.addTransceiver('video', { direction: 'recvonly' });
-    pc.addTransceiver('audio', { direction: 'recvonly' });
+    await fetchLocations();
 
-    pc.ontrack = (event) => {
-      videoElementA.srcObject = event.streams[0];
-    }
+    await Promise.all([
+      initializeCamera1(),
+      // initializeCamera2()
+    ]);
 
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    
-    await new Promise<void>((resolve) => {
-      if (pc.iceGatheringState === "complete") {
-        resolve();
-      } else {
-        const checkState = () => {
-          if (pc.iceGatheringState === "complete") {
-            pc.removeEventListener("icegatheringstatechange", checkState);
-            resolve();
-          }
-        }
-        pc.addEventListener("icegatheringstatechange", checkState);
+    const clockInterval = setInterval(updateClock, 1000);
+
+    return () => {
+      clearInterval(clockInterval);
+      
+      if (videoElement1?.srcObject) {
+        const stream = videoElement1.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
       }
-    })
+      if (videoElement2?.srcObject) {
+        const stream = videoElement2.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  });
 
-    const response = await fetch("http://localhost:9876/offer", { // change with WebRTC server
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(pc.localDescription)
-    })
-
-    const answer = await response.json();
-    await pc.setRemoteDescription(answer);
-  }) 
+  $: {
+    if (data.genderData1) {
+      maleCount1 = data.genderData1.male || 0;
+      femaleCount1 = data.genderData1.female || 0;
+    }
+    if (data.genderData2) {
+      maleCount2 = data.genderData2.male || 0;
+      femaleCount2 = data.genderData2.female || 0;
+    }
+  }
 </script>
 
 <Sidebar.Provider>
@@ -114,21 +144,47 @@
     </header>
 
     <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <!-- Camera 1 Section -->
       <div class="grid grid-cols-3 gap-4">
-        <CameraFeed cameraName="Camera A" bind:videoElement={videoElementA} bind:canvasElement={canvasElementA} {fpsA} {time} {locations} />
-        <!-- {fpsA} -->
-        <StatisticsCard title="Statistics" {fpsA} status="Active" {maleCount} {femaleCount} {locations} />
+        <CameraFeed 
+          cameraName="Camera 1" 
+          bind:videoElement={videoElement1} 
+          bind:canvasElement={canvasElement1} 
+          bind:fps={fps1}
+          {time} 
+          locations={locations1}
+        />
+        
+        <StatisticsCard 
+          title="Camera 1 Statistics" 
+          fps={fps1}
+          status="Active" 
+          maleCount={maleCount1}
+          femaleCount={femaleCount1}
+          locations={locations1}
+        />
       </div>
 
+      <!-- Camera 2 Section -->
       <div class="grid grid-cols-3 gap-4 mt-6">
-        <div class="col-span-2">
-          <div class="bg-black rounded-lg aspect-video flex items-center justify-center text-gray-400">
-            CCTV B Placeholder
-          </div>
-        </div>
-        <StatisticsCard title="Statistics" fps={fpsB} status="Offline" {maleCount} {femaleCount} {locations} />
+        <CameraFeed 
+          cameraName="Camera 2" 
+          bind:videoElement={videoElement2} 
+          bind:canvasElement={canvasElement2} 
+          bind:fps={fps2}
+          {time} 
+          locations={locations2}
+        />
+        
+        <StatisticsCard 
+          title="Camera 2 Statistics" 
+          fps={fps2}
+          status="Offline" 
+          maleCount={maleCount2}
+          femaleCount={femaleCount2}
+          locations={locations2}
+        />
       </div>
     </div>
   </Sidebar.Inset>
 </Sidebar.Provider>
-              

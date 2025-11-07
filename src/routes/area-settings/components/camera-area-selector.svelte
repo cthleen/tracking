@@ -55,26 +55,22 @@
     
     console.log('enableCamera called for camera', cameraId);
     
-    // Stop drawing loop first
     if (animationFrameId !== null) {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = null;
     }
     
-    // Clean up event listeners before switching
     cleanupEventListeners();
     
     cameraError = false;
     errorMessage = "";
 
     try {
-      // Stop existing stream if any
       if (stream) {
         stream.getTracks().forEach((t) => t.stop());
         stream = null;
       }
 
-      // Get all video devices
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(device => device.kind === 'videoinput');
 
@@ -102,18 +98,15 @@
       stream = await navigator.mediaDevices.getUserMedia(constraints);
       video.srcObject = stream;
       
-      // Wait for video to be ready
       await new Promise((resolve) => {
         video.onloadedmetadata = () => resolve(null);
       });
       
       await video.play();
       
-      // Wait for video to stabilize
       await tick();
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Re-get canvas context after potential recreate
       if (canvas) {
         ctx = canvas.getContext("2d");
         console.log('Canvas context refreshed:', !!ctx);
@@ -121,7 +114,6 @@
       
       resize();
       
-      // Re-setup event listeners after camera switch
       setupEventListeners();
       
       startDrawLoop();
@@ -380,7 +372,6 @@
     cleanupEventListeners();
   });
 
-  // Watch canvas binding changes
   $: if (canvas && browser && mounted) {
     console.log('Canvas binding changed, refreshing context and listeners');
     ctx = canvas.getContext("2d");
@@ -388,7 +379,6 @@
     setupEventListeners();
   }
 
-  // Watch for camera ID changes with proper reactivity
   $: if (browser && mounted && ctx && cameraId !== previousCameraId) {
     console.log('Camera ID changed from', previousCameraId, 'to', cameraId);
     previousCameraId = cameraId;
