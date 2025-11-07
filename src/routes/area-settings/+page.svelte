@@ -13,7 +13,6 @@
 	import AddLocationForm from "./components/add-area-form.svelte";
 
 	let { data, form } = $props();
-	let locations = $state(data?.locations || []);
 
 	const titles = {
 		'/dashboard': 'Dashboard',
@@ -48,8 +47,8 @@
 
 		<div class="flex flex-1 flex-col gap-4 p-4 pt-0">
 			<Alerts {form} />
-			<SavedLocations bind:locations bind:form />
-			<AddLocationForm bind:locations bind:form />
+			<SavedLocations locations={data.locations} />
+			<AddLocationForm />
 		</div>
 	</Sidebar.Inset>
 </Sidebar.Provider>

@@ -1,9 +1,15 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
+const API_BASE = 'http://localhost:8000/api';
+
 export const load: PageServerLoad = async ({ fetch }) => {
   try {
-    const res = await fetch('http://localhost:8000/api/location');
+    const res = await fetch(`${API_BASE}/location`);
+    if (!res.ok) {
+      console.error('Failed to load locations:', res.status);
+      return { locations: [] };
+    }
     const json = await res.json();
     return { locations: json?.data ?? [] };
   } catch (e) {
@@ -15,13 +21,14 @@ export const load: PageServerLoad = async ({ fetch }) => {
 export const actions: Actions = {
   addLocation: async ({ request, fetch }) => {
     const form = await request.formData();
-    const name = form.get('name');
-    const cameraId = form.get('camera_id');
-    const x1 = form.get('x1');
-    const y1 = form.get('y1');
-    const x2 = form.get('x2');
-    const y2 = form.get('y2');
+    const name = form.get('name')?.toString();
+    const cameraId = form.get('camera_id')?.toString();
+    const x1 = form.get('x1')?.toString();
+    const y1 = form.get('y1')?.toString();
+    const x2 = form.get('x2')?.toString();
+    const y2 = form.get('y2')?.toString();
 
+    // Validation
     if (!name || !cameraId || !x1 || !y1 || !x2 || !y2) {
       return fail(400, { error: 'Please fill all fields correctly' });
     }
@@ -36,37 +43,35 @@ export const actions: Actions = {
     };
 
     try {
-      const res = await fetch('http://localhost:8000/api/location', {
+      const res = await fetch(`${API_BASE}/location`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 
-      if (!res.ok) return fail(500, { error: await res.text() });
+      if (!res.ok) {
+        const errorText = await res.text();
+        return fail(500, { error: errorText || 'Failed to add location' });
+      }
 
-      const newData = await fetch('http://localhost:8000/api/location');
-      const list = await newData.json();
-
-      return {
-        success: 'Location added successfully!',
-        locations: list.data
-      };
+      return { success: 'Location added successfully!' };
     } catch (e) {
-      console.error(e);
+      console.error('Add location error:', e);
       return fail(500, { error: 'Server error adding location' });
     }
   },
 
   updateLocation: async ({ request, fetch }) => {
     const form = await request.formData();
-    const id = form.get('locationId');
-    const name = form.get('name');
-    const cameraId = form.get('camera_id');
-    const x1 = form.get('x1');
-    const y1 = form.get('y1');
-    const x2 = form.get('x2');
-    const y2 = form.get('y2');
+    const id = form.get('locationId')?.toString();
+    const name = form.get('name')?.toString();
+    const cameraId = form.get('camera_id')?.toString();
+    const x1 = form.get('x1')?.toString();
+    const y1 = form.get('y1')?.toString();
+    const x2 = form.get('x2')?.toString();
+    const y2 = form.get('y2')?.toString();
 
+    // Validation
     if (!id || !name || !cameraId || !x1 || !y1 || !x2 || !y2) {
       return fail(400, { error: 'All fields are required' });
     }
@@ -81,44 +86,46 @@ export const actions: Actions = {
     };
 
     try {
-      const res = await fetch(`http://localhost:8000/api/location/${id}`, {
+      const res = await fetch(`${API_BASE}/location/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 
-      if (!res.ok) return fail(500, { error: await res.text() });
+      if (!res.ok) {
+        const errorText = await res.text();
+        return fail(500, { error: errorText || 'Failed to update location' });
+      }
 
-      const get = await fetch('http://localhost:8000/api/location');
-      const data = await get.json();
-
-      return { success: 'Location updated!', locations: data.data };
+      return { success: 'Location updated successfully!' };
     } catch (e) {
-      console.log(e);
-      return fail(500, { error: 'Update error' });
+      console.error('Update location error:', e);
+      return fail(500, { error: 'Server error updating location' });
     }
   },
 
   deleteLocation: async ({ request, fetch }) => {
     const form = await request.formData();
-    const id = form.get('locationId');
+    const id = form.get('locationId')?.toString();
 
-    if (!id) return fail(400, { error: 'Location ID missing' });
+    if (!id) {
+      return fail(400, { error: 'Location ID missing' });
+    }
 
     try {
-      const res = await fetch(`http://localhost:8000/api/location/${id}`, {
+      const res = await fetch(`${API_BASE}/location/${id}`, {
         method: 'DELETE'
       });
 
-      if (!res.ok) return fail(500, { error: await res.text() });
+      if (!res.ok) {
+        const errorText = await res.text();
+        return fail(500, { error: errorText || 'Failed to delete location' });
+      }
 
-      const get = await fetch('http://localhost:8000/api/location');
-      const data = await get.json();
-
-      return { success: 'Location deleted!', locations: data.data };
+      return { success: 'Location deleted successfully!' };
     } catch (e) {
-      console.log(e);
-      return fail(500, { error: 'Delete error' });
+      console.error('Delete location error:', e);
+      return fail(500, { error: 'Server error deleting location' });
     }
   }
 };
