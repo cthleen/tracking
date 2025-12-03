@@ -52,7 +52,7 @@ async function fetchLocations(fetch: typeof globalThis.fetch): Promise<Location[
 
 function getTodayDateRange() {
     const now = new Date();
-    now.setUTCFullYear(2024);
+    now.setUTCFullYear(2025);
 
     const startOfDay = new Date(Date.UTC(
         now.getUTCFullYear(),
