@@ -15,6 +15,7 @@
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
   let stream: MediaStream | null = null;
+  let pc: RTCPeerConnection | null = null;
   let cameraError = false;
   let errorMessage = "";
   let previousCameraId = cameraId;
@@ -66,35 +67,43 @@
     errorMessage = "";
 
     try {
+      if (pc) {
+        try { pc.close(); } catch (_) {}
+        pc = null;
+      }
       if (stream) {
         stream.getTracks().forEach((t) => t.stop());
         stream = null;
       }
+      video.srcObject = null;
 
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      pc = new RTCPeerConnection();
+      pc.addTransceiver('video', { direction: 'recvonly' });
 
-      console.log('Available cameras:', videoDevices.length);
-      console.log('Trying to access camera:', cameraId);
-
-      if (videoDevices.length === 0) {
-        throw new Error("No camera devices found");
+      pc.ontrack = (event: RTCTrackEvent) => {
+        if (!browser) return;
+        video.srcObject = event.streams[0];
+        stream = event.streams[0];
       }
 
-      const deviceIndex = cameraId - 1;
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
 
-      if (deviceIndex >= videoDevices.length) {
-        throw new Error(`Camera ${cameraId} is not available. Only ${videoDevices.length} camera(s) detected.`);
+      const response = await fetch(`http://localhost:9876/offer?camera_id=${cameraId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sdp: pc.localDescription?.sdp,
+          type: pc.localDescription?.type,
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error();
       }
 
-      const constraints = {
-        video: {
-          deviceId: { exact: videoDevices[deviceIndex].deviceId }
-        }
-      };
-
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = stream;
+      const answer = await response.json();
+      await pc.setRemoteDescription(answer);
       
       await new Promise((resolve) => {
         video.onloadedmetadata = () => resolve(null);
