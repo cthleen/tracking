@@ -10,11 +10,13 @@
   }>();
 
   export let cameraId: number = 1;
+  export let mediamtxUrl: string = "http://localhost:8889"; // Base URL MediaMTX
 
   let video: HTMLVideoElement;
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
-  let stream: MediaStream | null = null;
+  let pc: RTCPeerConnection | null = null;
+  let restartTimeout: number | null = null;
   let cameraError = false;
   let errorMessage = "";
   let previousCameraId = cameraId;
@@ -66,41 +68,19 @@
     errorMessage = "";
 
     try {
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-        stream = null;
+      // Cleanup existing connection
+      if (pc) {
+        pc.close();
+        pc = null;
       }
 
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
-      console.log('Available cameras:', videoDevices.length);
-      console.log('Trying to access camera:', cameraId);
-
-      if (videoDevices.length === 0) {
-        throw new Error("No camera devices found");
+      if (restartTimeout !== null) {
+        clearTimeout(restartTimeout);
+        restartTimeout = null;
       }
 
-      const deviceIndex = cameraId - 1;
-
-      if (deviceIndex >= videoDevices.length) {
-        throw new Error(`Camera ${cameraId} is not available. Only ${videoDevices.length} camera(s) detected.`);
-      }
-
-      const constraints = {
-        video: {
-          deviceId: { exact: videoDevices[deviceIndex].deviceId }
-        }
-      };
-
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = stream;
-      
-      await new Promise((resolve) => {
-        video.onloadedmetadata = () => resolve(null);
-      });
-      
-      await video.play();
+      // Start WebRTC connection
+      await startWebRTC();
       
       await tick();
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -111,28 +91,80 @@
       }
       
       resize();
-      
       setupEventListeners();
-      
       startDrawLoop();
       load();
       
       console.log('Camera switched successfully to camera', cameraId);
     } catch (e: any) {
       cameraError = true;
-      
-      if (e.message.includes("not available")) {
-        errorMessage = e.message;
-      } else if (e.name === 'NotAllowedError') {
-        errorMessage = "Camera access denied. Please allow camera permissions.";
-      } else if (e.name === 'NotFoundError') {
-        errorMessage = `Camera ${cameraId} not found.`;
-      } else {
-        errorMessage = `Camera ${cameraId} is unavailable: ${e.message}`;
-      }
-      
+      errorMessage = `Camera ${cameraId} error: ${e.message}`;
       console.error('Camera error:', e);
     }
+  }
+
+  async function startWebRTC() {
+    const streamPath = `cam${cameraId}`;
+    const url = `${mediamtxUrl}/${streamPath}/whep`;
+
+    console.log('Connecting to WebRTC stream:', url);
+
+    pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      bundlePolicy: 'max-bundle'
+    });
+
+    pc.ontrack = (evt) => {
+      console.log('Got remote track:', evt.track.kind);
+      if (video) {
+        video.srcObject = evt.streams[0];
+      }
+    };
+
+    pc.onicecandidate = () => {};
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc && pc.iceConnectionState === 'disconnected') {
+        console.log('WebRTC disconnected, attempting restart...');
+        if (restartTimeout === null && mounted) {
+          restartTimeout = window.setTimeout(() => {
+            restartTimeout = null;
+            enableCamera();
+          }, 2000);
+        }
+      }
+    };
+
+    // Add transceiver for receiving video
+    const direction = "sendrecv";
+    pc.addTransceiver("video", { direction });
+    pc.addTransceiver("audio", { direction });
+
+    // Create offer
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    // Send offer to MediaMTX
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/sdp',
+      },
+      body: offer.sdp,
+    });
+
+    if (!res.ok) {
+      throw new Error(`WHEP request failed with status ${res.status}`);
+    }
+
+    // Set remote description from answer
+    const answerSdp = await res.text();
+    await pc.setRemoteDescription(new RTCSessionDescription({
+      type: 'answer',
+      sdp: answerSdp,
+    }));
+
+    console.log('WebRTC connection established');
   }
 
   function resize() {
@@ -145,16 +177,12 @@
 
     const videoRect = video.getBoundingClientRect();
     
-    // Set canvas resolution to match video resolution
     canvas.width = videoWidth;
     canvas.height = videoHeight;
 
-    // Set canvas display size to match video element
     canvas.style.width = videoRect.width + "px";
     canvas.style.height = videoRect.height + "px";
 
-    // IMPORTANT: Don't use transform - keep identity matrix
-    // This makes coordinates 1:1 with canvas resolution
     if (ctx) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
@@ -214,18 +242,15 @@
     return { x, y, w, h };
   };
 
-  // FIXED: Convert mouse position to canvas coordinates correctly
   const pos = (e: any) => {
     if (!canvas || !video) return { x: 0, y: 0 };
     
     const p = e.touches?.[0] || e;
     const canvasRect = canvas.getBoundingClientRect();
     
-    // Get mouse position relative to canvas display
     const mouseX = p.clientX - canvasRect.left;
     const mouseY = p.clientY - canvasRect.top;
     
-    // Convert from display coordinates to canvas resolution coordinates
     const scaleX = canvas.width / canvasRect.width;
     const scaleY = canvas.height / canvasRect.height;
     
@@ -380,8 +405,13 @@
       cancelAnimationFrame(animationFrameId);
     }
     
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
+    if (pc) {
+      pc.close();
+      pc = null;
+    }
+
+    if (restartTimeout !== null) {
+      clearTimeout(restartTimeout);
     }
     
     cleanupEventListeners();
