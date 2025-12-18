@@ -10,7 +10,7 @@
   }>();
 
   export let cameraId: number = 1;
-  export let mediamtxUrl: string = "http://localhost:8889"; // Base URL MediaMTX
+  export let mediamtxUrl: string = "http://localhost:8889";
 
   let video: HTMLVideoElement;
   let canvas: HTMLCanvasElement;
