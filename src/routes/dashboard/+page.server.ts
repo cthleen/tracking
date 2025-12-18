@@ -14,7 +14,6 @@ export const load: PageServerLoad = async ({ fetch, url, setHeaders }) => {
     let interval: string;
 
     const now = new Date();
-    now.setUTCFullYear(2025);
 
     setHeaders({
         'cache-control': 'public, max-age=300'

@@ -36,10 +36,10 @@ export const actions: Actions = {
     const body = {
       name,
       camera_id: Number(cameraId),
-      x1: Math.round(Number(x1)),
-      y1: Math.round(Number(y1)),
-      x2: Math.round(Number(x2)),
-      y2: Math.round(Number(y2))
+      x1: (Number(x1)),
+      y1: (Number(y1)),
+      x2: (Number(x2)),
+      y2: (Number(y2))
     };
 
     try {
@@ -79,10 +79,10 @@ export const actions: Actions = {
     const body = {
       name,
       camera_id: Number(cameraId),
-      x1: Math.round(Number(x1)),
-      y1: Math.round(Number(y1)),
-      x2: Math.round(Number(x2)),
-      y2: Math.round(Number(y2))
+      x1: Number(x1),
+      y1: Number(y1),
+      x2: Number(x2),
+      y2: Number(y2)
     };
 
     try {

@@ -6,7 +6,6 @@
     locationSelected: { x1: number; y1: number; x2: number; y2: number };
     locationLoaded: { x1: number; y1: number; x2: number; y2: number };
     locationCleared: void;
-    scroll: void;
   }>();
 
   export let cameraId: number = 1;
@@ -14,207 +13,155 @@
   let video: HTMLVideoElement;
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
-  let stream: MediaStream | null = null;
+
   let pc: RTCPeerConnection | null = null;
-  let cameraError = false;
-  let errorMessage = "";
-  let previousCameraId = cameraId;
+  let stream: MediaStream | null = null;
+
   let mounted = false;
+  let cameraReady = false;
+  let activeCameraId: number | null = null;
+  let previousCameraId = cameraId;
+
   let animationFrameId: number | null = null;
 
   let drawing = false;
   let startX = 0, startY = 0;
-  let current: any = null;
+
   let rect: any = null;
+  let current: any = null;
 
-  const getKey = () => `camera-location-${cameraId}`;
+  const getKey = () => `camera-rect-norm-${cameraId}`;
 
-  function save() {
-    if (!browser) return;
-    localStorage.setItem(getKey(), JSON.stringify(rect));
+  function normalizeRect(r: any) {
+    return {
+      x: r.x / canvas.width,
+      y: r.y / canvas.height,
+      w: r.w / canvas.width,
+      h: r.h / canvas.height
+    };
   }
 
-  function load() {
-    if (!browser) return;
+  function denormalizeRect(r: any) {
+    return {
+      x: r.x * canvas.width,
+      y: r.y * canvas.height,
+      w: r.w * canvas.width,
+      h: r.h * canvas.height
+    };
+  }
+
+  function saveRect() {
+    if (!browser || !rect) return;
+    localStorage.setItem(getKey(), JSON.stringify(normalizeRect(rect)));
+  }
+
+  function loadRect() {
+    if (!browser || !cameraReady || activeCameraId !== cameraId) return;
+
     const raw = localStorage.getItem(getKey());
     if (!raw) {
       rect = null;
       return;
     }
-    
-    rect = JSON.parse(raw);
+
+    const norm = JSON.parse(raw);
+    rect = denormalizeRect(norm);
+
     dispatch("locationLoaded", {
-      x1: Math.round(rect.x),
-      y1: Math.round(rect.y),
-      x2: Math.round(rect.x + rect.w),
-      y2: Math.round(rect.y + rect.h)
+      x1: norm.x,
+      y1: norm.y,
+      x2: norm.x + norm.w,
+      y2: norm.y + norm.h
     });
   }
 
   async function enableCamera() {
-    if (!browser || !mounted) return;
-    
-    console.log('enableCamera called for camera', cameraId);
-    
-    if (animationFrameId !== null) {
+    cameraReady = false;
+    activeCameraId = null;
+
+    rect = null;
+    current = null;
+
+    if (animationFrameId) {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = null;
     }
-    
-    cleanupEventListeners();
-    
-    cameraError = false;
-    errorMessage = "";
 
-    try {
-      if (pc) {
-        try { pc.close(); } catch (_) {}
-        pc = null;
-      }
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-        stream = null;
-      }
-      video.srcObject = null;
+    if (pc) pc.close();
+    if (stream) stream.getTracks().forEach(t => t.stop());
 
-      pc = new RTCPeerConnection();
-      pc.addTransceiver('video', { direction: 'recvonly' });
+    pc = new RTCPeerConnection();
+    pc.addTransceiver("video", { direction: "recvonly" });
 
-      pc.ontrack = (event: RTCTrackEvent) => {
-        if (!browser) return;
-        video.srcObject = event.streams[0];
-        stream = event.streams[0];
-      }
+    pc.ontrack = e => {
+      video.srcObject = e.streams[0];
+      stream = e.streams[0];
+    };
 
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
 
-      const response = await fetch(`http://localhost:9876/offer?camera_id=${cameraId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sdp: pc.localDescription?.sdp,
-          type: pc.localDescription?.type,
-        })
-      })
+    const res = await fetch(`http://localhost:9876/offer?camera_id=${cameraId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pc.localDescription)
+    });
 
-      if (!response.ok) {
-        throw new Error();
-      }
+    const answer = await res.json();
+    await pc.setRemoteDescription(answer);
 
-      const answer = await response.json();
-      await pc.setRemoteDescription(answer);
-      
-      await new Promise((resolve) => {
-        video.onloadedmetadata = () => resolve(null);
-      });
-      
-      await video.play();
-      
-      await tick();
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      if (canvas) {
-        ctx = canvas.getContext("2d");
-        console.log('Canvas context refreshed:', !!ctx);
-      }
-      
-      resize();
-      
-      setupEventListeners();
-      
-      startDrawLoop();
-      load();
-      
-      console.log('Camera switched successfully to camera', cameraId);
-    } catch (e: any) {
-      cameraError = true;
-      
-      if (e.message.includes("not available")) {
-        errorMessage = e.message;
-      } else if (e.name === 'NotAllowedError') {
-        errorMessage = "Camera access denied. Please allow camera permissions.";
-      } else if (e.name === 'NotFoundError') {
-        errorMessage = `Camera ${cameraId} not found.`;
-      } else {
-        errorMessage = `Camera ${cameraId} is unavailable: ${e.message}`;
-      }
-      
-      console.error('Camera error:', e);
-    }
+    await video.play();
+    await tick();
+    resizeCanvas();
+
+    cameraReady = true;
+    activeCameraId = cameraId;
+
+    startDrawLoop();
+    loadRect();
   }
 
-  function resize() {
-    if (!browser || !video || !canvas) return;
-    
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
+  function resizeCanvas() {
+    if (!canvas || !video) return;
 
-    if (!videoWidth || !videoHeight) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
 
-    const videoRect = video.getBoundingClientRect();
-    
-    // Set canvas resolution to match video resolution
-    canvas.width = videoWidth;
-    canvas.height = videoHeight;
+    const r = video.getBoundingClientRect();
+    canvas.style.width = r.width + "px";
+    canvas.style.height = r.height + "px";
 
-    // Set canvas display size to match video element
-    canvas.style.width = videoRect.width + "px";
-    canvas.style.height = videoRect.height + "px";
-
-    // IMPORTANT: Don't use transform - keep identity matrix
-    // This makes coordinates 1:1 with canvas resolution
-    if (ctx) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-    }
-    
-    console.log('Canvas resized:', { 
-      videoWidth, 
-      videoHeight, 
-      displayWidth: videoRect.width, 
-      displayHeight: videoRect.height 
-    });
+    ctx = canvas.getContext("2d");
+    ctx?.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   function startDrawLoop() {
-    if (animationFrameId !== null) {
-      cancelAnimationFrame(animationFrameId);
-    }
-    console.log('Starting draw loop');
-    draw();
+    animationFrameId = requestAnimationFrame(draw);
   }
 
   function draw() {
-    if (!ctx || cameraError || !mounted) {
-      console.log('Draw stopped:', { ctx: !!ctx, cameraError, mounted });
-      return;
-    }
-    
-    animationFrameId = requestAnimationFrame(draw);
+    if (!ctx || !cameraReady || !mounted) return;
 
+    animationFrameId = requestAnimationFrame(draw);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const drawBox = (box: any, color: string) => {
-      if (!ctx) return;
-      
+    const drawBox = (r: any, color: string) => {
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
-      ctx.setLineDash([]);
-      ctx.strokeRect(box.x, box.y, box.w, box.h);
-
-      ctx.fillStyle = color;
-      ctx.font = "14px sans-serif";
-      ctx.fillText(`(${Math.round(box.x)}, ${Math.round(box.y)})`, box.x + 4, box.y - 6);
-      ctx.fillText(
-        `(${Math.round(box.x + box.w)}, ${Math.round(box.y + box.h)})`,
-        box.x + box.w - 80,
-        box.y + box.h + 16
-      );
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
     };
 
     if (rect) drawBox(rect, "lime");
     if (current) drawBox(current, "yellow");
   }
+
+  const pos = (e: MouseEvent) => {
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) * (canvas.width / r.width),
+      y: (e.clientY - r.top) * (canvas.height / r.height)
+    };
+  };
 
   const norm = (r: any) => {
     let { x, y, w, h } = r;
@@ -223,96 +170,34 @@
     return { x, y, w, h };
   };
 
-  // FIXED: Convert mouse position to canvas coordinates correctly
-  const pos = (e: any) => {
-    if (!canvas || !video) return { x: 0, y: 0 };
-    
-    const p = e.touches?.[0] || e;
-    const canvasRect = canvas.getBoundingClientRect();
-    
-    // Get mouse position relative to canvas display
-    const mouseX = p.clientX - canvasRect.left;
-    const mouseY = p.clientY - canvasRect.top;
-    
-    // Convert from display coordinates to canvas resolution coordinates
-    const scaleX = canvas.width / canvasRect.width;
-    const scaleY = canvas.height / canvasRect.height;
-    
-    return {
-      x: mouseX * scaleX,
-      y: mouseY * scaleY
-    };
-  };
-
-  function handleMouseDown(e: MouseEvent) {
-    console.log('Mouse down triggered', { cameraError, drawing });
-    if (cameraError) return;
-    e.preventDefault();
-    const p = pos(e);
+  function down(e: MouseEvent) {
     drawing = true;
-    startX = p.x;
-    startY = p.y;
-    current = { x: p.x, y: p.y, w: 0, h: 0 };
-    console.log('Mouse down:', p, 'Drawing started');
-  }
-
-  function handleMouseMove(e: MouseEvent) {
-    if (!drawing || cameraError) return;
-    e.preventDefault();
     const p = pos(e);
-    current = norm({ x: startX, y: startY, w: p.x - startX, h: p.y - startY });
-  }
-
-  function handleMouseUp(e: MouseEvent) {
-    if (!drawing || cameraError) return;
-    e.preventDefault();
-    console.log('Mouse up, current:', current);
-    drawing = false;
-
-    if (current && Math.abs(current.w) > 5 && Math.abs(current.h) > 5) {
-      rect = current;
-      save();
-      dispatch("locationSelected", {
-        x1: Math.round(rect.x),
-        y1: Math.round(rect.y),
-        x2: Math.round(rect.x + rect.w),
-        y2: Math.round(rect.y + rect.h)
-      });
-      console.log('Selection saved:', rect);
-    }
-    current = null;
-  }
-
-  function handleTouchStart(e: TouchEvent) {
-    if (cameraError) return;
-    e.preventDefault();
-    const p = pos(e);
-    drawing = true;
     startX = p.x;
     startY = p.y;
     current = { x: p.x, y: p.y, w: 0, h: 0 };
   }
 
-  function handleTouchMove(e: TouchEvent) {
-    if (!drawing || cameraError) return;
-    e.preventDefault();
+  function move(e: MouseEvent) {
+    if (!drawing) return;
     const p = pos(e);
     current = norm({ x: startX, y: startY, w: p.x - startX, h: p.y - startY });
   }
 
-  function handleTouchEnd(e: TouchEvent) {
-    if (!drawing || cameraError) return;
-    e.preventDefault();
+  function up() {
+    if (!drawing) return;
     drawing = false;
 
-    if (current && Math.abs(current.w) > 5 && Math.abs(current.h) > 5) {
+    if (current && current.w > 5 && current.h > 5) {
       rect = current;
-      save();
+      saveRect();
+
+      const n = normalizeRect(rect);
       dispatch("locationSelected", {
-        x1: Math.round(rect.x),
-        y1: Math.round(rect.y),
-        x2: Math.round(rect.x + rect.w),
-        y2: Math.round(rect.y + rect.h)
+        x1: n.x,
+        y1: n.y,
+        x2: n.x + n.w,
+        y2: n.y + n.h
       });
     }
     current = null;
@@ -321,137 +206,40 @@
   export function clear() {
     rect = null;
     current = null;
-    if (browser) {
-      localStorage.removeItem(getKey());
-    }
+    if (browser) localStorage.removeItem(getKey());
     dispatch("locationCleared");
   }
 
-  function setupEventListeners() {
-    if (!browser || !canvas) {
-      console.log('Cannot setup listeners:', { browser, canvas: !!canvas });
-      return;
-    }
-    
-    console.log('Setting up event listeners on canvas');
-    
-    canvas.addEventListener("mousedown", handleMouseDown);
-    canvas.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("mouseup", handleMouseUp);
-    canvas.addEventListener("mouseleave", handleMouseUp);
-    
-    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
-    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
-    canvas.addEventListener("touchend", handleTouchEnd, { passive: false });
-    
-    if (typeof window !== 'undefined') {
-      window.addEventListener("resize", resize);
-    }
-    
-    console.log('Event listeners setup complete');
-  }
-
-  function cleanupEventListeners() {
-    if (!browser) return;
-    
-    console.log('Cleaning up event listeners');
-    
-    if (canvas) {
-      canvas.removeEventListener("mousedown", handleMouseDown);
-      canvas.removeEventListener("mousemove", handleMouseMove);
-      canvas.removeEventListener("mouseup", handleMouseUp);
-      canvas.removeEventListener("mouseleave", handleMouseUp);
-      
-      canvas.removeEventListener("touchstart", handleTouchStart);
-      canvas.removeEventListener("touchmove", handleTouchMove);
-      canvas.removeEventListener("touchend", handleTouchEnd);
-    }
-    
-    if (typeof window !== 'undefined') {
-      window.removeEventListener("resize", resize);
-    }
-  }
-
   onMount(async () => {
-    if (!browser) return;
     mounted = true;
     await tick();
-
-    ctx = canvas.getContext("2d");
-    setupEventListeners();
-    await enableCamera();
+    enableCamera();
   });
 
   onDestroy(() => {
     mounted = false;
-    
-    if (animationFrameId !== null) {
-      cancelAnimationFrame(animationFrameId);
-    }
-    
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
-    }
-    
-    cleanupEventListeners();
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    if (stream) stream.getTracks().forEach(t => t.stop());
   });
 
-  $: if (canvas && browser && mounted) {
-    console.log('Canvas binding changed, refreshing context and listeners');
-    ctx = canvas.getContext("2d");
-    cleanupEventListeners();
-    setupEventListeners();
-  }
-
-  $: if (browser && mounted && ctx && cameraId !== previousCameraId) {
-    console.log('Camera ID changed from', previousCameraId, 'to', cameraId);
+  $: if (mounted && cameraId !== previousCameraId) {
     previousCameraId = cameraId;
-    rect = null;
-    current = null;
     enableCamera();
   }
 </script>
 
 <div class="relative w-full max-w-2xl mx-auto">
-  {#if cameraError}
-    <div class="rounded-lg w-full bg-destructive/10 border-2 border-destructive p-8 text-center min-h-[400px] flex flex-col items-center justify-center">
-      <svg
-        class="mx-auto h-12 w-12 text-destructive mb-4"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-        />
-      </svg>
-      <h3 class="text-lg font-semibold text-destructive mb-2">Camera Error</h3>
-      <p class="text-sm text-muted-foreground max-w-md">{errorMessage}</p>
-    </div>
-  {:else}
-    <video bind:this={video} autoplay playsinline muted class="rounded-lg w-full" on:scroll={() => dispatch("scroll")}></video>
-    <canvas 
-      bind:this={canvas} 
-      class="absolute top-0 left-0 w-full h-full rounded-lg cursor-crosshair" 
-      on:scroll={() => dispatch("scroll")}
-    ></canvas>
-  {/if}
+  <video bind:this={video} class="rounded-lg w-full" autoplay muted playsinline />
+  <canvas
+    bind:this={canvas}
+    class="absolute top-0 left-0 w-full h-full cursor-crosshair"
+    on:mousedown={down}
+    on:mousemove={move}
+    on:mouseup={up}
+    on:mouseleave={up}
+  />
 </div>
 
 <div class="mt-2 flex justify-end">
-  <button
-    type="button"
-    class="px-2 py-2 text-sm rounded transition-colors
-          bg-neutral-200 hover:bg-neutral-300
-          dark:bg-neutral-800 dark:hover:bg-neutral-700
-          disabled:opacity-50 disabled:cursor-not-allowed"
-    on:click={clear}
-    disabled={cameraError}
-  >
-    Clear Selection
-  </button>
+  <button on:click={clear}>Clear Selection</button>
 </div>
