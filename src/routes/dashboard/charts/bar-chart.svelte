@@ -14,7 +14,6 @@
 
   let { data, title = "Peak Hours Analysis", description = " " }: Props = $props();
 
-  // Transform data to match chart expectations
   let chartData = $derived(data?.map(item => ({
     hour: item.hour,
     desktop: item.customers
@@ -50,7 +49,6 @@
             stroke: "none",
             rounded: "all",
             radius: 8,
-            // use the height of the chart to animate the bars
             initialY: context?.height,
             initialHeight: 0,
             motion: {

@@ -1,23 +1,86 @@
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ fetch, url, setHeaders }) => {
-    const rangeParam = url.searchParams.get("range");
+interface CacheEntry<T> {
+    data: T;
+    timestamp: number;
+    expiresIn: number;
+}
 
-    const range: "daily" | "weekly" | "monthly" =
-      rangeParam === "daily" ? "daily" :
-      rangeParam === "weekly" ? "weekly" :
-      rangeParam === "monthly" ? "monthly" :
-      "daily";
+class FetchCache {
+    private cache = new Map<string, CacheEntry<any>>();
+    private pendingRequests = new Map<string, Promise<any>>();
+
+    async fetch<T>(url:  string, ttl: number = 60000): Promise<T> {
+        const cacheKey = url;
+
+        const cached = this.cache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < cached.expiresIn) {
+            console.log(`✓ Cache HIT: ${url. substring(0, 80)}...`);
+            return cached.data;
+        }
+
+        if (this.pendingRequests. has(cacheKey)) {
+            console.log(`⏳ Deduped request:  ${url.substring(0, 80)}...`);
+            return this.pendingRequests.get(cacheKey)!;
+        }
+
+        console.log(`✗ Fetching: ${url.substring(0, 80)}...`);
+        const request = fetch(url)
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
+            .then(data => {
+                this. cache.set(cacheKey, {
+                    data,
+                    timestamp: Date.now(),
+                    expiresIn: ttl
+                });
+                this. pendingRequests.delete(cacheKey);
+                return data;
+            })
+            .catch(error => {
+                this.pendingRequests.delete(cacheKey);
+                throw error;
+            });
+
+        this.pendingRequests.set(cacheKey, request);
+        return request;
+    }
+
+    async fetchAll<T>(urls: string[], ttl?:  number): Promise<T[]> {
+        return Promise.all(urls.map(url => this.fetch<T>(url, ttl)));
+    }
+
+    clear(url?:  string) {
+        if (url) {
+            this.cache.delete(url);
+        } else {
+            this.cache.clear();
+        }
+    }
+}
+
+const fetchCache = new FetchCache();
+
+if (typeof setInterval !== 'undefined') {
+    setInterval(() => {
+        const now = Date.now();
+        for (const [key, entry] of fetchCache['cache'].entries()) {
+            if (now - entry.timestamp >= entry.expiresIn) {
+                fetchCache['cache'].delete(key);
+            }
+        }
+    }, 120000);
+}
+
+function calculateDateRange(range: "daily" | "weekly" | "monthly") {
+    const now = new Date();
+    now.setUTCFullYear(2025);
 
     let start: string;
     let end: string;
     let interval: string;
-
-    const now = new Date();
-
-    setHeaders({
-        'cache-control': 'public, max-age=300'
-    });
 
     if (range === "daily") {
         const todayUTC = new Date(Date.UTC(
@@ -34,6 +97,7 @@ export const load: PageServerLoad = async ({ fetch, url, setHeaders }) => {
         ));
         end = endOfDayUTC.toISOString();
         interval = "hour";
+
     } else if (range === "weekly") {
         const day = now.getUTCDay();
         const diffToMonday = day === 0 ? -6 : 1 - day;
@@ -53,6 +117,7 @@ export const load: PageServerLoad = async ({ fetch, url, setHeaders }) => {
         start = mondayUTC.toISOString();
         end = sundayUTC.toISOString();
         interval = "day";
+
     } else {
         const firstDayUTC = new Date(Date.UTC(
             now.getUTCFullYear(),
@@ -65,86 +130,68 @@ export const load: PageServerLoad = async ({ fetch, url, setHeaders }) => {
             0, 23, 59, 59, 999
         ));
         start = firstDayUTC.toISOString();
-        end = lastDayUTC.toISOString();
+        end = lastDayUTC. toISOString();
         interval = "day";
     }
 
-    console.log(`Fetching data for range: ${range}, start: ${start}, end: ${end}, interval: ${interval}`);
+    return { start, end, interval };
+}
 
-    try {
-        const baseUrl = "http://localhost:8000";
+function generateEmptyDataPoints(
+    start: string, 
+    end: string, 
+    interval: "hour" | "day"
+): Array<{ date: string; male: number; female: number }> {
+    const dataPoints: Array<{ date: string; male: number; female: number }> = [];
+    const startDate = new Date(start);
+    const endDate = new Date(end);
 
-        // Fetch all locations first
-        const locationsApiUrl = `${baseUrl}/api/location`;
-        const locationsRes = await fetch(locationsApiUrl);
-
-        if (!locationsRes.ok) {
-            throw new Error(`Failed to fetch locations: ${locationsRes.status} ${locationsRes.statusText}`);
+    if (interval === "hour") {
+        let current = new Date(startDate);
+        while (current <= endDate) {
+            dataPoints.push({
+                date: current.toISOString(),
+                male: 0,
+                female: 0
+            });
+            current.setHours(current.getHours() + 1);
         }
+    } else {
+        let current = new Date(startDate);
+        while (current <= endDate) {
+            dataPoints.push({
+                date: current.toISOString(),
+                male: 0,
+                female: 0
+            });
+            current.setDate(current.getDate() + 1);
+        }
+    }
 
-        const locationsRawData = await locationsRes.json();
-        const locations: any[] = Array.isArray(locationsRawData)
-            ? locationsRawData
-            : Array.isArray(locationsRawData.data)
-            ? locationsRawData.data
-            : [];
+    return dataPoints;
+}
 
-        console.log(`Found ${locations.length} locations for activity chart`);
+function extractDataArray(data: any): any[] {
+    if (Array.isArray(data)) return data;
+    if (data. data?. data && Array.isArray(data.data.data)) return data.data.data;
+    if (data.data && Array.isArray(data.data)) return data.data;
+    return [];
+}
 
-        // Fetch activity chart data from ALL locations
-        const activityPromises = locations.map(async (loc) => {
-            const locId = loc.id || loc.location_id || loc.uuid;
-            if (!locId) return [];
+function processActivityData(
+    results: any[],
+    start: string,
+    end: string,
+    interval: "hour" | "day"
+): Array<{ date: string; male: number; female: number }> {
+    const grouped:  Record<string, { male: number; female: number }> = {};
 
-            try {
-                const locApiUrl = `${baseUrl}/api/location/${locId}/customer-count?start=${start}&end=${end}&interval=${interval}`;
-                const locRes = await fetch(locApiUrl);
-
-                if (locRes.ok) {
-                    const locData = await locRes.json();
-                    const items: any[] = Array.isArray(locData)
-                        ? locData
-                        : Array.isArray(locData.data)
-                        ? locData.data
-                        : Array.isArray(locData.data?.data)
-                        ? locData.data.data
-                        : [];
-                    return items;
-                }
-            } catch (error) {
-                console.warn(`Failed to fetch data for location ${locId}:`, error);
-            }
-            return [];
-        });
-
-        const activityResults = await Promise.all(activityPromises);
-        const allActivityItems = activityResults.flat();
-
-        console.log(`Extracted ${allActivityItems.length} items from ALL locations for activity chart`);
-
-        const grouped: Record<string, { male: number; female: number }> = {};
-
-        for (const item of allActivityItems) {
-            const date = new Date(item.timestamp);
-            let dateKey: string;
-
-            if (range === "daily") {
-                const slotHour = Math.floor(date.getUTCHours() / 2) * 2;
-                const slotDate = new Date(Date.UTC(
-                    date.getUTCFullYear(),
-                    date.getUTCMonth(),
-                    date.getUTCDate(),
-                    slotHour, 0, 0, 0
-                ));
-                dateKey = slotDate.toISOString();
-            } else {
-                const dayDate = new Date(Date.UTC(
-                    date.getUTCFullYear(),
-                    date.getUTCMonth(),
-                    date.getUTCDate(), 0, 0, 0, 0
-                ));
-                dateKey = dayDate.toISOString();
-            }
+    // Process actual data from API
+    for (const result of results) {
+        const items = extractDataArray(result);
+        for (const item of items) {
+            const dateKey = item.timestamp || item.date;
+            if (! dateKey) continue;
 
             if (!grouped[dateKey]) {
                 grouped[dateKey] = { male: 0, female: 0 };
@@ -153,217 +200,210 @@ export const load: PageServerLoad = async ({ fetch, url, setHeaders }) => {
             if (item.gender === "M") {
                 grouped[dateKey].male += item.count || 0;
             } else if (item.gender === "F") {
-                grouped[dateKey].female += item.count || 0;
+                grouped[dateKey]. female += item.count || 0;
             }
         }
+    }
 
-        const processedData = Object.entries(grouped)
-            .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-            .map(([date, val]) => ({
-                date,
-                male: val.male,
-                female: val.female
-            }));
+    if (Object.keys(grouped).length === 0) {
+        console.log('⚠️ No activity data found, generating empty data points');
+        return generateEmptyDataPoints(start, end, interval);
+    }
 
-        console.log('Sample processed data (aggregated from all locations):', processedData.slice(0, 3));
+    return Object.entries(grouped)
+        .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
+        .map(([date, counts]) => ({ date, ...counts }));
+}
 
-        let locationData: Array<{ location: string; visitors: number }> = [];
-        try {
-            const pieChartLocationsRes = await fetch(`${baseUrl}/api/location`);
+function processPieChartData(
+    results: any[], 
+    locations: any[]
+): Array<{ location: string; visitors: number }> {
+    const locationData: Array<{ location: string; visitors:  number }> = [];
 
-            if (pieChartLocationsRes.ok) {
-                const pieChartLocationsData = await pieChartLocationsRes.json();
+    results.forEach((result, index) => {
+        const items = extractDataArray(result);
+        const totalVisitors = items. reduce(
+            (sum, item) => sum + (item.count || item.visitors || 0),
+            0
+        );
 
-                const pieChartLocations: any[] = Array.isArray(pieChartLocationsData)
-                    ? pieChartLocationsData
-                    : Array.isArray(pieChartLocationsData.data)
-                    ? pieChartLocationsData.data
-                    : [];
-
-                const oneYearAgo = new Date();
-                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-                const pieChartStart = oneYearAgo.toISOString();
-                const pieChartEnd = new Date().toISOString();
-
-                const pieChartPromises = pieChartLocations.slice(0, 10).map(async (loc, index) => { // Show more locations
-                    const locId = loc.id || loc.location_id || loc.uuid;
-                    if (!locId) return null;
-
-                    try {
-                        const locApiUrl = `${baseUrl}/api/location/${locId}/customer-count?start=${pieChartStart}&end=${pieChartEnd}&interval=day`;
-                        const locRes = await fetch(locApiUrl);
-
-                        if (locRes.ok) {
-                            const locData = await locRes.json();
-                            console.log("PieChart raw response for", locId, locData);
-
-                            // Handle the specific API response structure: { status, message, data: { data: null|array } }
-                            let items: any[] = [];
-
-                            if (locData.data?.data && Array.isArray(locData.data.data)) {
-                                items = locData.data.data;
-                            } else if (locData.data && Array.isArray(locData.data)) {
-                                items = locData.data;
-                            } else if (Array.isArray(locData)) {
-                                items = locData;
-                            } else {
-                                items = [];
-                            }
-
-                            const totalVisitors = items.reduce(
-                                (sum, item) => sum + (item.count || item.visitors || 0),
-                                0
-                            );
-
-                            return {
-                                location: loc.name || loc.location_name || `Location ${locId}`,
-                                visitors: totalVisitors
-                            };
-                        }
-
-                    } catch (error) {
-                        console.warn(`Failed to fetch data for location ${locId}:`, error);
-                    }
-                    return null;
-                });
-
-                const pieChartResults = await Promise.all(pieChartPromises);
-                const validPieChartResults = pieChartResults.filter((result): result is { location: string; visitors: number } =>
-                    result !== null && result.visitors > 0
-                );
-
-                if (validPieChartResults.length > 0) {
-                    locationData = validPieChartResults.sort((a, b) => b.visitors - a.visitors);
-                    console.log('Pie chart data (last 365 days):', locationData);
-                } else {
-                    locationData = [];
-                    console.log('No pie chart data available from API');
-                }
-            } else {
-                console.warn('Failed to fetch locations for pie chart');
-                locationData = [];
-            }
-        } catch (error) {
-            console.error('Error fetching pie chart data:', error);
-            locationData = [];
-        }
-
-        // Fetch gender distribution data (total male/female across all locations for the selected range)
-        let genderData: { male: number; female: number } = { male: 0, female: 0 };
-        try {
-            const genderPromises = locations.map(async (loc) => {
-                const locId = loc.id || loc.location_id || loc.uuid;
-                if (!locId) return { male: 0, female: 0 };
-
-                try {
-                    const locApiUrl = `${baseUrl}/api/location/${locId}/customer-count?start=${start}&end=${end}&interval=day`;
-                    const locRes = await fetch(locApiUrl);
-
-                    if (locRes.ok) {
-                        const locData = await locRes.json();
-                        let items: any[] = [];
-
-                        if (locData.data?.data && Array.isArray(locData.data.data)) {
-                            items = locData.data.data;
-                        } else if (locData.data && Array.isArray(locData.data)) {
-                            items = locData.data;
-                        } else if (Array.isArray(locData)) {
-                            items = locData;
-                        }
-
-                        const genderCounts = { male: 0, female: 0 };
-                        for (const item of items) {
-                            if (item.gender === "M") {
-                                genderCounts.male += item.count || 0;
-                            } else if (item.gender === "F") {
-                                genderCounts.female += item.count || 0;
-                            }
-                        }
-                        return genderCounts;
-                    }
-                } catch (error) {
-                    console.warn(`Failed to fetch gender data for location ${locId}:`, error);
-                }
-                return { male: 0, female: 0 };
+        if (locations[index]) {
+            locationData. push({
+                location: locations[index].name || 
+                         locations[index].location_name || 
+                         `Location ${index + 1}`,
+                visitors: totalVisitors
             });
+        }
+    });
 
-            const genderResults = await Promise.all(genderPromises);
-            genderData = genderResults.reduce(
-                (acc, curr) => ({
-                    male: acc.male + curr.male,
-                    female: acc.female + curr.female
+    return locationData
+        .sort((a, b) => b.visitors - a.visitors)
+        .slice(0, 10);
+}
+
+function processGenderData(results: any[]): { male: number; female: number } {
+    const genderData = { male: 0, female: 0 };
+
+    for (const result of results) {
+        const items = extractDataArray(result);
+        for (const item of items) {
+            if (item. gender === "M") {
+                genderData.male += item. count || 0;
+            } else if (item.gender === "F") {
+                genderData.female += item.count || 0;
+            }
+        }
+    }
+
+    return genderData;
+}
+
+export const load: PageServerLoad = async ({ fetch, url, setHeaders }) => {
+    const rangeParam = url.searchParams.get("range");
+    const range: "daily" | "weekly" | "monthly" =
+        rangeParam === "daily" ? "daily" : 
+        rangeParam === "weekly" ? "weekly" :
+        rangeParam === "monthly" ?  "monthly" : 
+        "daily";
+
+    const { start, end, interval } = calculateDateRange(range);
+
+    setHeaders({
+        'cache-control': 'public, max-age=3600, stale-while-revalidate=60'
+    });
+
+    console.log(`\n📊 Dashboard Load - Range: ${range}, ${start} to ${end}\n`);
+
+    try {
+        const baseUrl = "http://localhost:8000";
+
+        const locationsData = await fetchCache.fetch<any>(
+            `${baseUrl}/api/location`,
+            300000
+        );
+
+        const locations:  any[] = Array.isArray(locationsData)
+            ? locationsData
+            : Array.isArray(locationsData. data)
+            ? locationsData.data
+            : [];
+
+        if (locations.length === 0) {
+            console.warn('⚠️ No locations found, returning empty data structure');
+            return {
+                processedData: generateEmptyDataPoints(start, end, interval as "hour" | "day"),
+                locationData: [],
+                genderData: { male: 0, female: 0 },
+                range,
+                isEmpty: true,
+                metadata: {
+                    totalLocations: 0,
+                    fetchTime:  0,
+                    processTime:  0,
+                    cached:  false
+                }
+            };
+        }
+
+        console.log(`✓ Found ${locations.length} locations`);
+
+        const locationIds = locations
+            .map(loc => loc.id || loc.location_id || loc.uuid)
+            .filter(Boolean);
+
+        console.log('🚀 Starting parallel fetch...');
+        const startTime = Date.now();
+
+        const [activityResults, pieChartResults, genderResults] = await Promise.all([
+            fetchCache.fetchAll(
+                locationIds.map(id =>
+                    `${baseUrl}/api/location/${id}/customer-count? start=${start}&end=${end}&interval=${interval}`
+                ),
+                60000
+            ).catch(err => {
+                console.error('Activity fetch error:', err);
+                return [];
+            }),
+
+            fetchCache.fetchAll(
+                locationIds.slice(0, 10).map(id => {
+                    const oneYearAgo = new Date();
+                    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+                    return `${baseUrl}/api/location/${id}/customer-count?start=${oneYearAgo.toISOString()}&end=${new Date().toISOString()}&interval=day`;
                 }),
-                { male: 0, female: 0 }
-            );
+                3600000
+            ).catch(err => {
+                console.error('Pie chart fetch error:', err);
+                return [];
+            }),
 
-            console.log('Gender distribution data:', genderData);
-        } catch (error) {
-            console.error('Error fetching gender data:', error);
-            genderData = { male: 0, female: 0 };
-        }
+            fetchCache.fetchAll(
+                locationIds.map(id =>
+                    `${baseUrl}/api/location/${id}/customer-count?start=${start}&end=${end}&interval=day`
+                ),
+                60000
+            ).catch(err => {
+                console.error('Gender fetch error:', err);
+                return [];
+            })
+        ]);
 
-        // Calculate peak hours data (24 hours, 0-23)
-        let peakHoursData: Array<{ hour: string; customers: number }> = [];
-        try {
-            // Group all activity data by hour
-            const hourGroups: Record<number, number> = {};
+        const fetchTime = Date.now() - startTime;
+        console.log(`✓ Parallel fetch completed in ${fetchTime}ms`);
 
-            // Initialize all hours with 0
-            for (let h = 0; h < 24; h++) {
-                hourGroups[h] = 0;
-            }
+        console.log('⚙️ Processing data...');
+        const processStartTime = Date.now();
 
-            // Aggregate customer counts by hour
-            for (const item of allActivityItems) {
-                const date = new Date(item.timestamp);
-                const hour = date.getUTCHours();
-                hourGroups[hour] += item.count || 0;
-            }
+        const processedData = processActivityData(activityResults, start, end, interval as "hour" | "day");
+        const locationData = processPieChartData(pieChartResults, locations. slice(0, 10));
+        const genderData = processGenderData(genderResults);
 
-            // Convert to chart format
-            peakHoursData = Object.entries(hourGroups)
-                .sort(([a], [b]) => parseInt(a) - parseInt(b))
-                .map(([hour, customers]) => ({
-                    hour: hour.toString(),
-                    customers: customers
-                }));
+        const processTime = Date.now() - processStartTime;
+        console.log(`✓ Data processed in ${processTime}ms`);
 
-            console.log('Peak hours data:', peakHoursData);
-        } catch (error) {
-            console.error('Error calculating peak hours data:', error);
-            // Fallback: create empty data
-            peakHoursData = Array.from({ length: 24 }, (_, i) => ({
-                hour: i.toString(),
-                customers: 0
-            }));
-        }
+        console.log(`\n📈 Results Summary:`);
+        console.log(`   - Activity data points: ${processedData.length}`);
+        console.log(`   - Top locations:  ${locationData.length}`);
+        console.log(`   - Gender:  M=${genderData.male}, F=${genderData.female}`);
+        console.log(`   - Total time: ${fetchTime + processTime}ms\n`);
+
+        const hasActivityData = processedData.some(d => d.male > 0 || d.female > 0);
+        const hasLocationData = locationData.some(l => l.visitors > 0);
+        const isEmpty = !hasActivityData && !hasLocationData && genderData.male === 0 && genderData.female === 0;
 
         return {
-            rawData: allActivityItems,
             processedData,
             locationData,
             genderData,
-            peakHoursData,
             range,
-            start,
-            end,
-            interval,
-            success: true,
-            totalDataPoints: processedData.length
+            isEmpty,
+            metadata: {
+                totalLocations: locations.length,
+                fetchTime,
+                processTime,
+                cached: fetchTime < 500
+            }
         };
 
     } catch (error) {
-        console.error('Error in page server load:', error);
+        console.error('❌ Dashboard load error:', error);
 
+        const { start, end, interval } = calculateDateRange(range);
         return {
-            rawData: [],
-            processedData: [],
+            processedData: generateEmptyDataPoints(start, end, interval as "hour" | "day"),
+            locationData: [],
+            genderData: { male: 0, female: 0 },
             range,
-            start,
-            end,
-            interval,
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error occurred'
+            isEmpty: true,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            metadata: {
+                totalLocations: 0,
+                fetchTime: 0,
+                processTime: 0,
+                cached:  false
+            }
         };
     }
 };

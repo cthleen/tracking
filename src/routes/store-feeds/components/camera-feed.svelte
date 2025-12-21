@@ -30,7 +30,7 @@
       fillColor: "rgba(0, 255, 0, 0.15)"
     },
     label: {
-      font: "bold 18px Arial",
+      font: "bold 20px Arial",
       textColor: "#fff",
       backgroundColor: "rgba(0,0,0,0.7)",
       padding: 4

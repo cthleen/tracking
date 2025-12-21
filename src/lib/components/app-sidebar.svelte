@@ -62,6 +62,6 @@
     <NavProjects projects={data.projects} />
   </Sidebar.Content>
   <Sidebar.Footer>
-    <NavUser user={data.user} />
+    <!-- <NavUser user={data.user} /> -->
   </Sidebar.Footer>
 </Sidebar.Root>

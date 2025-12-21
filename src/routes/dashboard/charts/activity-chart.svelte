@@ -12,7 +12,6 @@
   import { cubicInOut } from "svelte/easing";
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-
   interface Props {
     data: {
       processedData: Array<{ date: string; male: number; female: number }>;
@@ -113,7 +112,7 @@
 
   const getDailyTickValues = (data: any[]) => {
     if (!data || data.length === 0) return [];
-    
+      
     // For daily view: show every 2 hours (data is already grouped by 2-hour intervals)
     // Show all data points since they represent 2-hour intervals
     return data.map(d => d.date);
@@ -121,7 +120,7 @@
 
   const getWeeklyTickValues = (data: any[]) => {
     if (!data || data.length === 0) return [];
-    
+      
     // For weekly view: show all 7 days (Mon-Sun)
     // Use actual data points to ensure proper alignment
     return data.map(d => d.date);
@@ -188,8 +187,7 @@
   <Card.Content>
     {#if data.processedData.length > 0}
     <div class="relative">
-      <!-- Add left padding for y-axis space -->
-      <div class="pl-6"> <!-- Reduced left padding for y-axis labels -->
+      <div class="px-3">
         <ChartContainer config={chartConfig} class="aspect-auto h-[300px] w-full">
           <AreaChart
             data={chartData}

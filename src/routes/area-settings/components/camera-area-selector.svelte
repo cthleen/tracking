@@ -229,7 +229,7 @@
 </script>
 
 <div class="relative w-full max-w-2xl mx-auto">
-  <video bind:this={video} class="rounded-lg w-full" autoplay muted playsinline />
+  <video bind:this={video} class="rounded-lg w-full" autoplay muted playsinline></video>
   <canvas
     bind:this={canvas}
     class="absolute top-0 left-0 w-full h-full cursor-crosshair"
@@ -237,7 +237,7 @@
     on:mousemove={move}
     on:mouseup={up}
     on:mouseleave={up}
-  />
+  ></canvas>
 </div>
 
 <div class="mt-2 flex justify-end">
