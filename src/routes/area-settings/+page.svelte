@@ -11,6 +11,7 @@
 	import Alerts from "./components/alerts.svelte";
 	import SavedLocations from "./components/saved-area.svelte";
 	import AddLocationForm from "./components/add-area-form.svelte";
+	import AddLineForm from "./components/add-line-form.svelte";
 
 	let { data, form } = $props();
 
@@ -49,6 +50,8 @@
 			<Alerts {form} />
 			<SavedLocations locations={data.locations} />
 			<AddLocationForm />
+			<AddLineForm />
+			
 		</div>
 	</Sidebar.Inset>
 </Sidebar.Provider>

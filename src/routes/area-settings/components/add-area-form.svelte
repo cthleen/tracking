@@ -111,8 +111,8 @@
 			Add Area
 		</Button>
 
-		<p class="text-xs text-muted-foreground mt-3">
+		<!-- <p class="text-xs text-muted-foreground mt-3">
 			Debug → x1: {x1}, y1: {y1}, x2: {x2}, y2: {y2}, name: "{locationName}"
-		</p>
+		</p> -->
 	</form>
 </div>
