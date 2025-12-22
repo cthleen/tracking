@@ -15,16 +15,16 @@ class FetchCache {
 
         const cached = this.cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < cached.expiresIn) {
-            console.log(`✓ Cache HIT: ${url. substring(0, 80)}...`);
+            // console.log(`✓ Cache HIT: ${url. substring(0, 80)}...`);
             return cached.data;
         }
 
         if (this.pendingRequests. has(cacheKey)) {
-            console.log(`⏳ Deduped request:  ${url.substring(0, 80)}...`);
+            // console.log(`⏳ Deduped request:  ${url.substring(0, 80)}...`);
             return this.pendingRequests.get(cacheKey)!;
         }
 
-        console.log(`✗ Fetching: ${url.substring(0, 80)}...`);
+        // console.log(`✗ Fetching: ${url.substring(0, 80)}...`);
         const request = fetch(url)
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -76,7 +76,6 @@ if (typeof setInterval !== 'undefined') {
 
 function calculateDateRange(range: "daily" | "weekly" | "monthly") {
     const now = new Date();
-    now.setUTCFullYear(2025);
 
     let start: string;
     let end: string;

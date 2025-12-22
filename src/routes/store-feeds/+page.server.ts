@@ -1,30 +1,9 @@
 import type { PageServerLoad } from './$types';
+import type { Location, GenderCounts } from './types';
 
-const BASE_URL = "http://localhost:8000";
+const BASE_URL = 'http://localhost:8000';
 const CAMERA_1_ID = 1;
 const CAMERA_2_ID = 2;
-
-interface Location {
-    id?: string;
-    location_id?: string;
-    uuid?: string;
-    camera_id?: string;
-    name: string;
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-}
-
-interface GenderCounts {
-    male: number;
-    female: number;
-}
-
-interface CustomerCountItem {
-    gender: string;
-    count: number;
-}
 
 async function fetchLocations(fetch: typeof globalThis.fetch): Promise<Location[]> {
     try {
@@ -151,61 +130,32 @@ function filterLocationsByCamera(locations: Location[], cameraId: string): Locat
 }
 
 export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
-    setHeaders({
-        'cache-control': 'public, max-age=60'
-    });
+  setHeaders({ 'cache-control': 'public, max-age=60' });
 
-    try {
-        const allLocations = await fetchLocations(fetch);
+  const allLocations = await fetchLocations(fetch);
 
-        const uniqueCameraIds = [...new Set(allLocations.map(loc => loc.camera_id || 'undefined'))];
-        console.log('Camera IDs in database:', uniqueCameraIds);
-        console.log('Looking for Camera 1:', CAMERA_1_ID);
-        console.log('Looking for Camera 2:', CAMERA_2_ID);
+  const locations1 = allLocations.filter(
+    loc => Number(loc.camera_id) === CAMERA_1_ID
+  );
+  const locations2 = allLocations.filter(
+    loc => Number(loc.camera_id) === CAMERA_2_ID
+  );
 
-        const locations1 = filterLocationsByCamera(allLocations, CAMERA_1_ID);
-        const locations2 = filterLocationsByCamera(allLocations, CAMERA_2_ID);
+  const { start, end } = getTodayDateRange();
 
-        console.log(`Camera 1: ${locations1.length} locations`);
-        console.log(`Camera 2: ${locations2.length} locations`);
+  const [genderData1, genderData2] = await Promise.all([
+    aggregateGenderCounts(fetch, locations1, start, end),
+    aggregateGenderCounts(fetch, locations2, start, end),
+  ]);
 
-        const { start, end } = getTodayDateRange();
-
-        const [genderData1, genderData2] = await Promise.all([
-            aggregateGenderCounts(fetch, locations1, start, end),
-            aggregateGenderCounts(fetch, locations2, start, end)
-        ]);
-
-        console.log('Camera 1 gender data:', genderData1);
-        console.log('Camera 2 gender data:', genderData2);
-
-        const totalGenderData: GenderCounts = {
-            male: genderData1.male + genderData2.male,
-            female: genderData1.female + genderData2.female
-        };
-
-        return {
-            allLocations,
-            locations1,
-            locations2,
-            genderData1,
-            genderData2,
-            genderData: totalGenderData,
-            success: true
-        };
-
-    } catch (error) {
-        console.error('Error in store feeds page server load:', error);
-
-        return {
-            allLocations: [],
-            locations1: [],
-            locations2: [],
-            genderData1: { male: 0, female: 0 },
-            genderData2: { male: 0, female: 0 },
-            genderData: { male: 0, female: 0 },
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error occurred'
-        };
+  return {
+    locations1,
+    locations2,
+    genderData1,
+    genderData2,
+    genderData: {
+      male: genderData1.male + genderData2.male,
+      female: genderData1.female + genderData2.female
     }
+  };
 };
