@@ -10,6 +10,10 @@
 
   export let cameraId: number = 1;
 
+  export let initialArea:
+		{ x1: number; y1: number; x2: number; y2: number }
+	| null = null;
+
   let video: HTMLVideoElement;
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
@@ -40,6 +44,19 @@
       h: r.h / canvas.height
     };
   }
+
+	function applyInitialArea() {
+		if (!initialArea || !cameraReady || !canvas) return;
+
+		rect = {
+			x: initialArea.x1 * canvas.width,
+			y: initialArea.y1 * canvas.height,
+			w: (initialArea.x2 - initialArea.x1) * canvas.width,
+			h: (initialArea.y2 - initialArea.y1) * canvas.height
+		};
+
+		dispatch("locationLoaded", initialArea);
+	}
 
   function denormalizeRect(r: any) {
     return {
@@ -221,6 +238,10 @@
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
     if (stream) stream.getTracks().forEach(t => t.stop());
   });
+
+  $: if (mounted && cameraReady && initialArea) {
+		applyInitialArea();
+	}
 
   $: if (mounted && cameraId !== previousCameraId) {
     previousCameraId = cameraId;

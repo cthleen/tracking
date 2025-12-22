@@ -164,6 +164,14 @@
 						<CameraLocationSelector
 							bind:this={cameraSelector}
 							cameraId={editForm.camera_id}
+
+							initialArea={{
+								x1: Number(editForm.x1),
+								y1: Number(editForm.y1),
+								x2: Number(editForm.x2),
+								y2: Number(editForm.y2)
+							}}
+
 							on:locationSelected={updateEditLocation}
 							on:locationCleared={clearEditLocation}
 						/>
