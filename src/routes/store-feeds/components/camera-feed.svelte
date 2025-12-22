@@ -158,11 +158,11 @@
       playsinline
       muted
       class="rounded-lg w-full"
-    />
+    ></video>
 
     <canvas
       bind:this={canvasElement}
       class="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none"
-    />
+    ></canvas>
   </div>
 </div>

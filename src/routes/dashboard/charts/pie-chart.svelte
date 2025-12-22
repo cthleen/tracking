@@ -99,7 +99,7 @@
               <span
                 class="w-3 h-3 rounded-full flex-shrink-0"
                 style="background-color: {item.color}"
-              />
+              ></span>
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-medium truncate">
                   {item.location}
