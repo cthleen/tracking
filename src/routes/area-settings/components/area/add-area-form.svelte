@@ -1,7 +1,7 @@
 <script>
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
-	import CameraLocationSelector from "./camera-area-selector.svelte";
+	import CameraLocationSelector from "../camera/camera-area-selector.svelte";
 
 	export let locations;
 	export let form;

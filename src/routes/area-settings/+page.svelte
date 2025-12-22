@@ -8,10 +8,10 @@
 	import { Separator } from "$lib/components/ui/separator";
 	import { LightSwitch } from "$lib/components/ui/light-switch";
 
-	import Alerts from "./components/alerts.svelte";
-	import SavedLocations from "./components/saved-area.svelte";
-	import AddLocationForm from "./components/add-area-form.svelte";
-	import AddLineForm from "./components/add-line-form.svelte";
+	import Alerts from "./components/layout/alerts.svelte";
+	import SavedLocations from "./components/area/area-list.svelte";
+	import AddLocationForm from "./components/area/add-area-form.svelte";
+	import AddLineForm from "./components/line/add-line-form.svelte";
 
 	let { data, form } = $props();
 

@@ -80,7 +80,7 @@
       } else {
         return v.toLocaleDateString("en-US", {
           day: "numeric",
-          month: "short" // "1 Oct", "4 Oct"
+          month: "short"
         });
       }
     };

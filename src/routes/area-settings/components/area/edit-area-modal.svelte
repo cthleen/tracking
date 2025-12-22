@@ -3,7 +3,7 @@
 	import { enhance, applyAction } from '$app/forms';
 	import { createEventDispatcher } from 'svelte';
 	import X from "@lucide/svelte/icons/x";
-	import CameraLocationSelector from "./camera-area-selector.svelte";
+	import CameraLocationSelector from "../camera/camera-area-selector.svelte";
 
 	export let location = null;
 	export let open = false;

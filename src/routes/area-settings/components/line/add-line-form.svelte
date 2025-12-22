@@ -1,10 +1,10 @@
 <script>
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
-	import CameraLineSelector from "./camera-line-selector.svelte";
+	import CameraLineSelector from "../camera/camera-line-selector.svelte";
 
-	export let locations;
-	export let form;
+	// export let locations;
+	// export let form;
 
 	let lineName = "";
 	let x1 = "", y1 = "", x2 = "", y2 = "";
@@ -47,7 +47,7 @@
 			</div> -->
 
 			<div class="flex-1">
-				<label class="text-sm font-medium mb-2 block">Camera Selection</label>
+				<p class="text-sm font-medium mb-2 block">Camera Selection</p>
 				<div class="relative">
 					<select
 						name="camera_id"
@@ -63,7 +63,7 @@
 			</div>
 		</div>
 
-		<label class="text-sm font-medium mb-2 block">Draw Line on Camera</label>
+		<p class="text-sm font-medium mb-2 block">Draw Line on Camera</p>
 		<div class="mt-4 mb-4">
 			<CameraLineSelector
 				{cameraId}
