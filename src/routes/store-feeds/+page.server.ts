@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import type { Location, GenderCounts } from './types';
+import type { Location, GenderCounts } from './utils/types';
 
 const BASE_URL = 'http://localhost:8000';
 const CAMERA_1_ID = 1;

@@ -4,6 +4,8 @@
 	import { createEventDispatcher } from 'svelte';
 	import X from "@lucide/svelte/icons/x";
 	import CameraLocationSelector from "../camera/camera-area-selector.svelte";
+	import CoordinateInputs from "../shared/coordinate-inputs.svelte";
+	import { createEmptyCoordinates, updateCoordinatesFromEvent, areCoordinatesValid, coordinatesToNumbers } from "../../utils/coordinates";
 
 	export let location = null;
 	export let open = false;
@@ -15,23 +17,24 @@
 
 	let editForm = { 
 		name: '', 
-		x1: '', 
-		y1: '', 
-		x2: '', 
-		y2: '', 
-		camera_id: 1 
+		camera_id: 1,
+		coords: createEmptyCoordinates()
 	};
 
 	$: if (location && open) {
 		editForm = {
 			name: location.name,
-			x1: location.x1,
-			y1: location.y1,
-			x2: location.x2,
-			y2: location.y2,
-			camera_id: Number(location.camera_id)
+			camera_id: Number(location.camera_id),
+			coords: {
+				x1: location.x1,
+				y1: location.y1,
+				x2: location.x2,
+				y2: location.y2
+			}
 		};
 	}
+
+	$: isValid = editForm.name && areCoordinatesValid(editForm.coords);
 
 	function close() {
 		open = false;
@@ -42,30 +45,24 @@
 	function resetForm() {
 		editForm = { 
 			name: '', 
-			x1: '', 
-			y1: '', 
-			x2: '', 
-			y2: '', 
-			camera_id: 1 
+			camera_id: 1,
+			coords: createEmptyCoordinates()
 		};
 		if (cameraSelector) {
 			cameraSelector.clear();
 		}
 	}
 
-	function updateEditLocation({ detail }) {
-		editForm.x1 = detail.x1;
-		editForm.y1 = detail.y1;
-		editForm.x2 = detail.x2;
-		editForm.y2 = detail.y2;
+	function handleLocationUpdate(event) {
+		editForm.coords = updateCoordinatesFromEvent(event);
 	}
 
-	function clearEditLocation() {
-		editForm.x1 = editForm.y1 = editForm.x2 = editForm.y2 = "";
+	function handleLocationClear() {
+		editForm.coords = createEmptyCoordinates();
 	}
 
 	function handleCameraChange() {
-		clearEditLocation();
+		handleLocationClear();
 		if (cameraSelector) {
 			cameraSelector.clear();
 		}
@@ -112,10 +109,7 @@
 					}}
 				>
 					<input type="hidden" name="locationId" value={location?.id} />
-					<input type="hidden" name="x1" value={editForm.x1} />
-					<input type="hidden" name="y1" value={editForm.y1} />
-					<input type="hidden" name="x2" value={editForm.x2} />
-					<input type="hidden" name="y2" value={editForm.y2} />
+					<CoordinateInputs {...editForm.coords} />
 					
 					<div class="flex gap-3 mb-4">
 						<div class="flex-1">
@@ -164,16 +158,9 @@
 						<CameraLocationSelector
 							bind:this={cameraSelector}
 							cameraId={editForm.camera_id}
-
-							initialArea={{
-								x1: Number(editForm.x1),
-								y1: Number(editForm.y1),
-								x2: Number(editForm.x2),
-								y2: Number(editForm.y2)
-							}}
-
-							on:locationSelected={updateEditLocation}
-							on:locationCleared={clearEditLocation}
+							initialArea={coordinatesToNumbers(editForm.coords)}
+							on:locationSelected={handleLocationUpdate}
+							on:locationCleared={handleLocationClear}
 						/>
 					</div>
 
@@ -188,7 +175,7 @@
 						<button
 							type="submit"
 							class="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
-							disabled={!editForm.name || !editForm.x1 || !editForm.y1 || !editForm.x2 || !editForm.y2 || isSubmitting}
+							disabled={!isValid || isSubmitting}
 						>
 							{isSubmitting ? 'Saving...' : 'Save Changes'}
 						</button>

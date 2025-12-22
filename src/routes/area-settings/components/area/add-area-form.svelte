@@ -2,12 +2,14 @@
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
 	import CameraLocationSelector from "../camera/camera-area-selector.svelte";
+	import CoordinateInputs from "../shared/coordinate-inputs.svelte";
+	import { createEmptyCoordinates, updateCoordinatesFromEvent, areCoordinatesValid } from "../../utils/coordinates";
 
 	export let locations;
 	export let form;
 
 	let locationName = "";
-	let x1 = "", y1 = "", x2 = "", y2 = "";
+	let coords = createEmptyCoordinates();
 	let cameraId = 1;
 
 	const cameras = [
@@ -15,39 +17,19 @@
 		{ id: 2, name: "Camera 2" }
 	];
 
-	function update({ detail }) {
-		x1 = detail.x1;
-		y1 = detail.y1;
-		x2 = detail.x2;
-		y2 = detail.y2;
-		// logMissingFields();
+	function handleLocationUpdate(event) {
+		coords = updateCoordinatesFromEvent(event);
 	}
 
-	function clear() {
-		x1 = y1 = x2 = y2 = "";
-		// logMissingFields();
+	function handleLocationClear() {
+		coords = createEmptyCoordinates();
 	}
 	
 	function handleCameraChange() {
-		clear();
+		handleLocationClear();
 	}
 
-	// function logMissingFields() {
-	// 	const missing = [];
-	// 	if (!locationName) missing.push("locationName");
-	// 	if (!x1) missing.push("x1");
-	// 	if (!y1) missing.push("y1");
-	// 	if (!x2) missing.push("x2");
-	// 	if (!y2) missing.push("y2");
-
-	// 	if (missing.length > 0) {
-	// 		console.warn("Missing fields:", missing.join(", "));
-	// 	} else {
-	// 		console.log("All fields filled, ready to submit.");
-	// 	}
-	// }
-
-	// $: logMissingFields();
+	$: isValid = locationName && areCoordinatesValid(coords);
 </script>
 
 <div class="bg-muted/50 rounded-xl p-6">
@@ -96,23 +78,20 @@
 		<div class="mt-4 mb-4">
 			<CameraLocationSelector
 				{cameraId}
-				on:locationSelected={update}
-				on:locationLoaded={update}
-				on:locationCleared={clear}
-				/>
+				on:locationSelected={handleLocationUpdate}
+				on:locationLoaded={handleLocationUpdate}
+				on:locationCleared={handleLocationClear}
+			/>
 		</div>
 
-		<input type="hidden" name="x1" value={x1}/>
-		<input type="hidden" name="y1" value={y1}/>
-		<input type="hidden" name="x2" value={x2}/>
-		<input type="hidden" name="y2" value={y2}/>
+		<CoordinateInputs {...coords} />
 
-		<Button type="submit" class="w-full" disabled={!locationName || !x1}>
+		<Button type="submit" class="w-full" disabled={!isValid}>
 			Add Area
 		</Button>
 
 		<!-- <p class="text-xs text-muted-foreground mt-3">
-			Debug → x1: {x1}, y1: {y1}, x2: {x2}, y2: {y2}, name: "{locationName}"
+			Debug → x1: {coords.x1}, y1: {coords.y1}, x2: {coords.x2}, y2: {coords.y2}, name: "{locationName}"
 		</p> -->
 	</form>
 </div>

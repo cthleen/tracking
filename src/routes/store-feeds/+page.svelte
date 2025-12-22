@@ -12,9 +12,9 @@
   import CameraFeed from './components/camera-feed.svelte';
   import StatisticsCard from './components/statistic-card.svelte';
 
-  import { connectToCamera } from './lib/camera';
-  import { createClock } from './lib/time';
-  import type { Location } from './types';
+  import { connectToCamera } from './utils/camera';
+  import { createClock } from './utils/time';
+  import type { Location } from './utils/types';
 
   export let data;
 

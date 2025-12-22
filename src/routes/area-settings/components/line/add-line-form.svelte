@@ -2,12 +2,11 @@
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
 	import CameraLineSelector from "../camera/camera-line-selector.svelte";
-
-	// export let locations;
-	// export let form;
+	import CoordinateInputs from "../shared/coordinate-inputs.svelte";
+	import { createEmptyCoordinates, updateCoordinatesFromEvent, areCoordinatesValid } from "../../utils/coordinates";
 
 	let lineName = "";
-	let x1 = "", y1 = "", x2 = "", y2 = "";
+	let coords = createEmptyCoordinates();
 	let cameraId = 1;
 
 	const cameras = [
@@ -15,20 +14,19 @@
 		{ id: 2, name: "Camera 2" }
 	];
 
-	function update({ detail }) {
-		x1 = detail.x1;
-		y1 = detail.y1;
-		x2 = detail.x2;
-		y2 = detail.y2;
+	function handleLineUpdate(event) {
+		coords = updateCoordinatesFromEvent(event);
 	}
 
-	function clear() {
-		x1 = y1 = x2 = y2 = "";
+	function handleLineClear() {
+		coords = createEmptyCoordinates();
 	}
 
 	function handleCameraChange() {
-		clear();
+		handleLineClear();
 	}
+
+	$: isValid = lineName && areCoordinatesValid(coords);
 </script>
 
 <div class="bg-muted/50 rounded-xl p-6">
@@ -67,19 +65,20 @@
 		<div class="mt-4 mb-4">
 			<CameraLineSelector
 				{cameraId}
-				on:locationSelected={update}
-				on:locationLoaded={update}
-				on:locationCleared={clear}
+				on:locationSelected={handleLineUpdate}
+				on:locationLoaded={handleLineUpdate}
+				on:locationCleared={handleLineClear}
 			/>
 		</div>
 
-		<input type="hidden" name="x1" value={x1} />
-		<input type="hidden" name="y1" value={y1} />
-		<input type="hidden" name="x2" value={x2} />
-		<input type="hidden" name="y2" value={y2} />
+		<CoordinateInputs {...coords} />
 
-		<Button type="submit" class="w-full" disabled={!lineName || !x1}>
+		<Button type="submit" class="w-full" disabled={!isValid}>
 			Add Line
 		</Button>
+
+		<!-- <p class="text-xs text-muted-foreground mt-3">
+			Debug → x1: {coords.x1}, y1: {coords.y1}, x2: {coords.x2}, y2: {coords.y2}, name: "{lineName}"
+		</p> -->
 	</form>
 </div>
