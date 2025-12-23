@@ -1,11 +1,18 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick, createEventDispatcher } from "svelte";
-	import { browser } from "$app/environment";
 
 	const dispatch = createEventDispatcher();
 
 	export let cameraId: number = 1;
-	export let coords: any;
+	export let lines: Array<{
+		id: string;
+		name: "in" | "out";
+		camera_id: number;
+		x1: number;
+		y1: number;
+		x2: number;
+		y2: number;
+	}> = [];
 
 	let video: HTMLVideoElement;
 	let canvas: HTMLCanvasElement;
@@ -16,20 +23,17 @@
 
 	let mounted = false;
 	let cameraReady = false;
-	let activeCameraId: number | null = null;
 	let previousCameraId = cameraId;
 
 	let animationFrameId: number | null = null;
 
 	let drawing = false;
 	let current: any = null;
-	let line: any = null;
+
+	/* ================= CAMERA ================= */
 
 	async function enableCamera() {
 		cameraReady = false;
-		activeCameraId = null;
-
-		line = null;
 		current = null;
 
 		if (animationFrameId) {
@@ -65,14 +69,10 @@
 		resizeCanvas();
 
 		cameraReady = true;
-		activeCameraId = cameraId;
-
 		startDrawLoop();
 	}
 
 	function resizeCanvas() {
-		if (!canvas || !video) return;
-
 		canvas.width = video.videoWidth;
 		canvas.height = video.videoHeight;
 
@@ -83,6 +83,8 @@
 		ctx = canvas.getContext("2d");
 		ctx?.setTransform(1, 0, 0, 1, 0, 0);
 	}
+
+	/* ================= DRAW ================= */
 
 	function startDrawLoop() {
 		animationFrameId = requestAnimationFrame(draw);
@@ -103,22 +105,26 @@
 			ctx.stroke();
 		};
 
-		if (line) drawLine(line, "lime");
+		// 🔥 draw semua line dari DB
+		for (const l of lines.filter(l => l.camera_id === cameraId)) {
+			const color = l.name === "in" ? "lime" : "red";
+			drawLine(denormalize(l), color);
+		}
+
+		// sedang digambar
 		if (current) drawLine(current, "yellow");
 	}
 
-	function denormalize(c) {
+	function denormalize(l) {
 		return {
-			x1: c.x1 * canvas.width,
-			y1: c.y1 * canvas.height,
-			x2: c.x2 * canvas.width,
-			y2: c.y2 * canvas.height
+			x1: l.x1 * canvas.width,
+			y1: l.y1 * canvas.height,
+			x2: l.x2 * canvas.width,
+			y2: l.y2 * canvas.height
 		};
 	}
 
-	$: if (coords && canvas && cameraReady) {
-		line = denormalize(coords);
-	}
+	/* ================= INTERACTION ================= */
 
 	function pos(e) {
 		const r = canvas.getBoundingClientRect();
@@ -144,22 +150,23 @@
 	function up() {
 		if (!drawing) return;
 		drawing = false;
-		line = current;
 
 		dispatch("locationSelected", {
-			x1: line.x1 / canvas.width,
-			y1: line.y1 / canvas.height,
-			x2: line.x2 / canvas.width,
-			y2: line.y2 / canvas.height
+			x1: current.x1 / canvas.width,
+			y1: current.y1 / canvas.height,
+			x2: current.x2 / canvas.width,
+			y2: current.y2 / canvas.height
 		});
 
 		current = null;
 	}
 
 	export function clear() {
-		line = null;
+		current = null;
 		dispatch("locationCleared");
 	}
+
+	/* ================= LIFECYCLE ================= */
 
 	onMount(async () => {
 		mounted = true;
@@ -193,5 +200,5 @@
 </div>
 
 <div class="mt-2 flex justify-end">
-	<button on:click={clear}>Clear Line</button>
+	<button on:click={clear}>Clear Drawing</button>
 </div>

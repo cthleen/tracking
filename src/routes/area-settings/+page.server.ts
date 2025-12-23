@@ -1,11 +1,11 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-const API_BASE = 'http://localhost:8000/api';
+const BASE_URL = 'http://localhost:8000/api';
 
 export const load: PageServerLoad = async ({ fetch }) => {
   try {
-    const res = await fetch(`${API_BASE}/location`);
+    const res = await fetch(`${BASE_URL}/location`);
     if (!res.ok) {
       console.error('Failed to load locations:', res.status);
       return { 
@@ -62,7 +62,7 @@ export const actions: Actions = {
     };
 
     try {
-      const res = await fetch(`${API_BASE}/location`, {
+      const res = await fetch(`${BASE_URL}/location`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -107,7 +107,7 @@ export const actions: Actions = {
     };
 
     try {
-      const res = await fetch(`${API_BASE}/location/${id}`, {
+      const res = await fetch(`${BASE_URL}/location/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -134,7 +134,7 @@ export const actions: Actions = {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/location/${id}`, {
+      const res = await fetch(`${BASE_URL}/location/${id}`, {
         method: 'DELETE'
       });
 
@@ -165,8 +165,8 @@ export const actions: Actions = {
 		};
 
 		const url = id
-			? `${API_BASE}/location/${id}`
-			: `${API_BASE}/location`;
+			? `${BASE_URL}/location/${id}`
+			: `${BASE_URL}/location`;
 
 		const method = id ? "PATCH" : "POST";
 

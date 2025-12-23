@@ -105,9 +105,8 @@
 		<div class="mt-4 mb-4">
 			<CameraLineSelector
 				{cameraId}
-				{coords}
+				lines={lines}
 				on:locationSelected={handleLineUpdate}
-				on:locationCleared={handleClear}
 			/>
 		</div>
 
