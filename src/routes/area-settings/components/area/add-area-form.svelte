@@ -36,19 +36,20 @@
 	<h2 class="text-xl font-bold mb-6">Add New Area</h2>
 
 	<form method="POST" action="?/addLocation">
+		<input type="hidden" name="type" value="box" />
 		<div class="flex gap-3 mb-4">
 			<div class="flex-1">
-				<label class="text-sm font-medium mb-2 block">Area Name</label>
+				<p class="text-sm font-medium mb-2 block">Area Name</p>
 				<Input
 					name="name"
 					placeholder="Area name"
 					bind:value={locationName}
-					class="w-full"
+					class="w-full h-11"
 				/>
 			</div>
 
 			<div class="flex-1">
-				<label class="text-sm font-medium mb-2 block">Camera Selection</label>
+				<p class="text-sm font-medium mb-2 block">Camera Selection</p>
 				<div class="relative">
 					<select
 						name="camera_id"

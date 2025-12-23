@@ -33,16 +33,22 @@
 	<h2 class="text-xl font-bold mb-6">Add New Line</h2>
 
 	<form method="POST" action="?/addLine">
+		<input type="hidden" name="type" value="line" />
 		<div class="flex gap-3 mb-4">
-			<!-- <div class="flex-1">
-				<label class="text-sm font-medium mb-2 block">Line Name</label>
-				<Input
-					name="name"
-					placeholder="Line name"
-					bind:value={lineName}
-					class="w-full"
-				/>
-			</div> -->
+			<div class="flex-1">
+				<p class="text-sm font-medium mb-2 block">Line Type</p>
+				<div class="relative">
+					<select
+						name="name"
+						bind:value={lineName}
+						class="w-full appearance-none rounded-md border-2 border-input bg-background text-foreground px-3 pr-8 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+					>
+						<option value="" disabled>Select line type</option>
+						<option value="in">In</option>
+						<option value="out">Out</option>
+					</select>
+				</div>	
+			</div>
 
 			<div class="flex-1">
 				<p class="text-sm font-medium mb-2 block">Camera Selection</p>
