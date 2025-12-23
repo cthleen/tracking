@@ -4,6 +4,7 @@
 	import CameraLocationSelector from "../camera/camera-area-selector.svelte";
 	import CoordinateInputs from "../shared/coordinate-inputs.svelte";
 	import { createEmptyCoordinates, updateCoordinatesFromEvent, areCoordinatesValid } from "../../utils/coordinates";
+	import ChevronDown from "@lucide/svelte/icons/chevron-down";
 
 	export let locations;
 	export let form;
@@ -61,7 +62,8 @@
 							<option value={cam.id}>{cam.name}</option>
 						{/each}
 					</select>
-					<svg
+					<ChevronDown class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+					<!-- <svg
 						class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
@@ -70,7 +72,7 @@
 						stroke-width="2"
 					>
 						<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-					</svg>
+					</svg> -->
 				</div>
 			</div>			
 		</div>

@@ -4,6 +4,7 @@
 	import CameraLineSelector from "../camera/camera-line-selector.svelte";
 	import CoordinateInputs from "../shared/coordinate-inputs.svelte";
 	import { createEmptyCoordinates, updateCoordinatesFromEvent, areCoordinatesValid } from "../../utils/coordinates";
+	import ChevronDown from "@lucide/svelte/icons/chevron-down";
 
 	let lineName = "";
 	let coords = createEmptyCoordinates();
@@ -47,6 +48,7 @@
 						<option value="in">In</option>
 						<option value="out">Out</option>
 					</select>
+					<ChevronDown class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 				</div>	
 			</div>
 
@@ -63,6 +65,7 @@
 							<option value={cam.id}>{cam.name}</option>
 						{/each}
 					</select>
+					<ChevronDown class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 				</div>
 			</div>
 		</div>
