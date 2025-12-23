@@ -150,47 +150,36 @@ export const actions: Actions = {
     }
   },
 
-  addLine: async ({ request, fetch }) => {
-    const form = await request.formData();
+	upsertLine: async ({ request, fetch }) => {
+		const form = await request.formData();
 
-    const name = form.get('name')?.toString();
-    const cameraId = form.get('camera_id')?.toString();
-    const type = form.get('type')?.toString() ?? 'line';
-    const x1 = form.get('x1')?.toString();
-    const y1 = form.get('y1')?.toString();
-    const x2 = form.get('x2')?.toString();
-    const y2 = form.get('y2')?.toString();
+		const id = form.get("locationId")?.toString();
+		const body = {
+			name: form.get("name"),
+			camera_id: Number(form.get("camera_id")),
+			type: "line",
+			x1: Number(form.get("x1")),
+			y1: Number(form.get("y1")),
+			x2: Number(form.get("x2")),
+			y2: Number(form.get("y2"))
+		};
 
-    if (!name || !cameraId || !x1 || !y1 || !x2 || !y2) {
-      return fail(400, { error: 'Please fill all fields correctly' });
-    }
+		const url = id
+			? `${API_BASE}/location/${id}`
+			: `${API_BASE}/location`;
 
-    const body = {
-      name,
-      camera_id: Number(cameraId),
-      type,
-      x1: Number(x1),
-      y1: Number(y1),
-      x2: Number(x2),
-      y2: Number(y2)
-    };
+		const method = id ? "PATCH" : "POST";
 
-    try {
-      const res = await fetch(`${API_BASE}/location`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
+		const res = await fetch(url, {
+			method,
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body)
+		});
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        return fail(500, { error: errorText || 'Failed to add location' });
-      }
+		if (!res.ok) {
+			return fail(500, { error: "Failed to save line" });
+		}
 
-      return { success: 'Location added successfully!' };
-    } catch (e) {
-      console.error('Add location error:', e);
-      return fail(500, { error: 'Server error adding location' });
-    }
-  }
+		return { success: "Line saved successfully" };
+	}
 };

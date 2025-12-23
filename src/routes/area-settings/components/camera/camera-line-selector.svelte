@@ -2,13 +2,10 @@
 	import { onMount, onDestroy, tick, createEventDispatcher } from "svelte";
 	import { browser } from "$app/environment";
 
-	const dispatch = createEventDispatcher<{
-		locationSelected: { x1: number; y1: number; x2: number; y2: number };
-		locationLoaded: { x1: number; y1: number; x2: number; y2: number };
-		locationCleared: void;
-	}>();
+	const dispatch = createEventDispatcher();
 
 	export let cameraId: number = 1;
+	export let coords: any;
 
 	let video: HTMLVideoElement;
 	let canvas: HTMLCanvasElement;
@@ -25,49 +22,8 @@
 	let animationFrameId: number | null = null;
 
 	let drawing = false;
-
-	let line: any = null;
 	let current: any = null;
-
-	const getKey = () => `camera-line-norm-${cameraId}`;
-
-	function normalizeLine(l: any) {
-		return {
-			x1: l.x1 / canvas.width,
-			y1: l.y1 / canvas.height,
-			x2: l.x2 / canvas.width,
-			y2: l.y2 / canvas.height
-		};
-	}
-
-	function denormalizeLine(l: any) {
-		return {
-			x1: l.x1 * canvas.width,
-			y1: l.y1 * canvas.height,
-			x2: l.x2 * canvas.width,
-			y2: l.y2 * canvas.height
-		};
-	}
-
-	function saveLine() {
-		if (!browser || !line) return;
-		localStorage.setItem(getKey(), JSON.stringify(normalizeLine(line)));
-	}
-
-	function loadLine() {
-		if (!browser || !cameraReady || activeCameraId !== cameraId) return;
-
-		const raw = localStorage.getItem(getKey());
-		if (!raw) {
-			line = null;
-			return;
-		}
-
-		const norm = JSON.parse(raw);
-		line = denormalizeLine(norm);
-
-		dispatch("locationLoaded", norm);
-	}
+	let line: any = null;
 
 	async function enableCamera() {
 		cameraReady = false;
@@ -76,7 +32,11 @@
 		line = null;
 		current = null;
 
-		if (animationFrameId) cancelAnimationFrame(animationFrameId);
+		if (animationFrameId) {
+			cancelAnimationFrame(animationFrameId);
+			animationFrameId = null;
+		}
+
 		if (pc) pc.close();
 		if (stream) stream.getTracks().forEach(t => t.stop());
 
@@ -108,10 +68,11 @@
 		activeCameraId = cameraId;
 
 		startDrawLoop();
-		loadLine();
 	}
 
 	function resizeCanvas() {
+		if (!canvas || !video) return;
+
 		canvas.width = video.videoWidth;
 		canvas.height = video.videoHeight;
 
@@ -120,6 +81,7 @@
 		canvas.style.height = r.height + "px";
 
 		ctx = canvas.getContext("2d");
+		ctx?.setTransform(1, 0, 0, 1, 0, 0);
 	}
 
 	function startDrawLoop() {
@@ -132,7 +94,7 @@
 		animationFrameId = requestAnimationFrame(draw);
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-		const drawLine = (l: any, color: string) => {
+		const drawLine = (l, color) => {
 			ctx.strokeStyle = color;
 			ctx.lineWidth = 3;
 			ctx.beginPath();
@@ -145,22 +107,35 @@
 		if (current) drawLine(current, "yellow");
 	}
 
-	const pos = (e: MouseEvent) => {
+	function denormalize(c) {
+		return {
+			x1: c.x1 * canvas.width,
+			y1: c.y1 * canvas.height,
+			x2: c.x2 * canvas.width,
+			y2: c.y2 * canvas.height
+		};
+	}
+
+	$: if (coords && canvas && cameraReady) {
+		line = denormalize(coords);
+	}
+
+	function pos(e) {
 		const r = canvas.getBoundingClientRect();
 		return {
 			x: (e.clientX - r.left) * (canvas.width / r.width),
 			y: (e.clientY - r.top) * (canvas.height / r.height)
 		};
-	};
+	}
 
-	function down(e: MouseEvent) {
+	function down(e) {
 		drawing = true;
 		const p = pos(e);
 		current = { x1: p.x, y1: p.y, x2: p.x, y2: p.y };
 	}
 
-	function move(e: MouseEvent) {
-		if (!drawing || !current) return;
+	function move(e) {
+		if (!drawing) return;
 		const p = pos(e);
 		current.x2 = p.x;
 		current.y2 = p.y;
@@ -169,21 +144,20 @@
 	function up() {
 		if (!drawing) return;
 		drawing = false;
+		line = current;
 
-		if (current) {
-			line = current;
-			saveLine();
+		dispatch("locationSelected", {
+			x1: line.x1 / canvas.width,
+			y1: line.y1 / canvas.height,
+			x2: line.x2 / canvas.width,
+			y2: line.y2 / canvas.height
+		});
 
-			const n = normalizeLine(line);
-			dispatch("locationSelected", n);
-		}
 		current = null;
 	}
 
 	export function clear() {
 		line = null;
-		current = null;
-		if (browser) localStorage.removeItem(getKey());
 		dispatch("locationCleared");
 	}
 
@@ -197,6 +171,7 @@
 		mounted = false;
 		if (animationFrameId) cancelAnimationFrame(animationFrameId);
 		if (stream) stream.getTracks().forEach(t => t.stop());
+		if (pc) pc.close();
 	});
 
 	$: if (mounted && cameraId !== previousCameraId) {
