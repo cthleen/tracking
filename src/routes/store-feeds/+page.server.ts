@@ -1,31 +1,42 @@
 import type { PageServerLoad } from './$types';
 import type { Location, GenderCounts } from './utils/types';
 
-const BASE_URL = 'http://localhost:8000';
+const BASE_URL = 'http://localhost:8000/api';
 const CAMERA_1_ID = 1;
 const CAMERA_2_ID = 2;
 
-async function fetchLocations(fetch: typeof globalThis.fetch): Promise<Location[]> {
+async function fetchLocations(fetch: typeof globalThis.fetch): Promise<{ locations: Location[], areas: Location[], lines: Location[] }> {
     try {
-        const res = await fetch(`${BASE_URL}/api/location`);
-        
+        const res = await fetch(`${BASE_URL}/location`);
         if (!res.ok) {
-            throw new Error(`Failed to fetch locations: ${res.status} ${res.statusText}`);
+            console.error('Failed to load locations:', res.status);
+            return { 
+                locations: [], 
+                areas: [], 
+                lines: [] 
+            };
         }
 
-        const rawData = await res.json();
+        const json = await res.json();
+        const allLocations = json?.data ?? [];
         
-        const locations: Location[] = Array.isArray(rawData)
-            ? rawData
-            : Array.isArray(rawData.data)
-            ? rawData.data
-            : [];
-
-        console.log(`✓ Fetched ${locations.length} total locations`);
-        return locations;
-    } catch (error) {
-        console.error('✗ Error fetching locations:', error);
-        return [];
+        const areas = allLocations.filter((location: any) => location.type === 'box');
+        const lines = allLocations.filter((location: any) => location.type === 'line');
+        
+        console.log(`✓ Fetched ${allLocations.length} total locations (${areas.length} areas, ${lines.length} lines)`);
+        
+        return { 
+            locations: allLocations,
+            areas: areas,
+            lines: lines
+        };
+    } catch (e) {
+        console.error('Load error:', e);
+        return { 
+            locations: [], 
+            areas: [], 
+            lines: [] 
+        };
     }
 }
 
@@ -59,7 +70,7 @@ async function fetchLocationGenderCounts(
     end: string
 ): Promise<GenderCounts> {
     try {
-        const url = `${BASE_URL}/api/location/${locationId}/customer-count?start=${start}&end=${end}&interval=hour`;
+        const url = `${BASE_URL}/location/${locationId}/customer-count?start=${start}&end=${end}&interval=hour`;
         const res = await fetch(url);
 
         if (!res.ok) {
@@ -132,12 +143,12 @@ function filterLocationsByCamera(locations: Location[], cameraId: string): Locat
 export const load: PageServerLoad = async ({ fetch, setHeaders }) => {
   setHeaders({ 'cache-control': 'public, max-age=60' });
 
-  const allLocations = await fetchLocations(fetch);
+  const { areas } = await fetchLocations(fetch);
 
-  const locations1 = allLocations.filter(
+  const locations1 = areas.filter(
     loc => Number(loc.camera_id) === CAMERA_1_ID
   );
-  const locations2 = allLocations.filter(
+  const locations2 = areas.filter(
     loc => Number(loc.camera_id) === CAMERA_2_ID
   );
 
