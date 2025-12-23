@@ -7,7 +7,7 @@
 	import { page } from "$app/stores";
 
 	let cameraId = 1;
-	let lineName: "in";
+	let lineName: "in" | "out" = "in";
 	let coords = createEmptyCoordinates();
 
 	const cameras = [
@@ -15,10 +15,8 @@
 		{ id: 2, name: "Camera 2" }
 	];
 
-	// ambil line dari server
 	$: lines = $page.data.lines ?? [];
 
-	// cari line existing
 	$: existingLine =
 		cameraId && lineName
 			? lines.find(
@@ -29,7 +27,6 @@
 			  )
 			: null;
 
-	// load coords kalau existing
 	$: if (existingLine) {
 		coords = {
 			x1: existingLine.x1,
@@ -38,6 +35,19 @@
 			y2: existingLine.y2
 		};
 	}
+
+	$: linesWithPreview = coords && areCoordinatesValid(coords) 
+		? [
+				...lines.filter(l => !(l.camera_id === cameraId && l.name === lineName)),
+				{
+					id: existingLine?.id || 'preview',
+					name: lineName,
+					camera_id: cameraId,
+					type: 'line',
+					...coords
+				}
+		  ]
+		: lines;
 
 	function handleLineUpdate(event) {
 		coords = event.detail;
@@ -74,7 +84,6 @@
 						on:change={handleChange}
 						class="w-full appearance-none rounded-md border-2 border-input bg-background text-foreground px-3 pr-8 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
 					>
-						<!-- <option value="" disabled>Select line type</option> -->
 						<option value="in">In</option>
 						<option value="out">Out</option>
 					</select>
@@ -105,7 +114,8 @@
 		<div class="mt-4 mb-4">
 			<CameraLineSelector
 				{cameraId}
-				lines={lines}
+				{lineName}
+				lines={linesWithPreview}
 				on:locationSelected={handleLineUpdate}
 			/>
 		</div>
