@@ -6,6 +6,7 @@
   export let canvasElement: HTMLCanvasElement;
   export let fps: number = 0;
   export let time: string;
+  export let isLoaded: boolean = false;
 
   export let locations: {
     id: string;
@@ -50,19 +51,19 @@
     };
   }
 
+  let resizeObserver: ResizeObserver;
+
   function resizeCanvas() {
     if (!videoElement || !canvasElement) return;
     if (!videoElement.videoWidth || !videoElement.videoHeight) return;
 
-    canvasElement.width = videoElement.videoWidth;
-    canvasElement.height = videoElement.videoHeight;
+    const videoWidth = videoElement.videoWidth;
+    const videoHeight = videoElement.videoHeight;
 
-    const rect = videoElement.getBoundingClientRect();
-    canvasElement.style.width = rect.width + "px";
-    canvasElement.style.height = rect.height + "px";
+    canvasElement.width = videoWidth;
+    canvasElement.height = videoHeight;
 
-    ctx = canvasElement.getContext("2d");
-    ctx?.setTransform(1, 0, 0, 1, 0, 0);
+    ctx = canvasElement.getContext('2d');
   }
 
   function calculateFPS() {
@@ -137,32 +138,53 @@
   }
 
   onMount(() => {
-    videoElement.addEventListener("loadedmetadata", start);
+    videoElement.addEventListener("inedmetadata", start);
+    
+    resizeObserver = new ResizeObserver(() => {
+      if (videoElement.videoWidth && videoElement.videoHeight) {
+        resizeCanvas();
+      }
+    });
+    
+    resizeObserver.observe(videoElement);
   });
 
   onDestroy(() => {
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    if (resizeObserver) resizeObserver.disconnect();
   });
 </script>
 
-<div class="col-span-2 bg-muted/50 rounded-xl p-4 flex flex-col gap-2">
+<div class="bg-muted/50 rounded-xl p-4 flex flex-col gap-2 w-full h-full">
   <div class="flex justify-between items-center">
     <h2 class="font-semibold text-lg">{cameraName}</h2>
     <span class="text-sm text-gray-500">{time}</span>
   </div>
 
-  <div class="relative w-full">
+  <div class="relative w-full aspect-video bg-muted rounded-lg overflow-hidden">
+    {#if !isLoaded}
+      <div class="absolute inset-0 flex items-center justify-center bg-muted">
+        <div class="flex flex-col items-center gap-2">
+          <!-- <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div> -->
+          <p class="text-sm text-muted-foreground">Loading camera...</p>
+        </div>
+      </div>
+    {/if}
+
     <video
       bind:this={videoElement}
       autoplay
       playsinline
       muted
-      class="rounded-lg w-full"
+      class="rounded-lg w-full h-full object-contain"
+      class:invisible={!isLoaded}
     ></video>
 
     <canvas
       bind:this={canvasElement}
-      class="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none"
+      class="absolute inset-0 w-full h-full rounded-lg pointer-events-none"
+      class:invisible={!isLoaded}
     ></canvas>
   </div>
 </div>
+

@@ -26,6 +26,9 @@
   let camera1Status: 'Active' | 'Offline' = 'Offline';
   let camera2Status: 'Active' | 'Offline' = 'Offline';
 
+  let camera1Loaded = false;
+  let camera2Loaded = false;
+
   let fps1 = 0;
   let fps2 = 0;
 
@@ -55,9 +58,11 @@
     await Promise.all([
       connectToCamera(1, videoElement1, (status) => {
         camera1Status = status;
+        if (status === 'Active') camera1Loaded = true;
       }),
       connectToCamera(2, videoElement2, (status) => {
         camera2Status = status;
+        if (status === 'Active') camera2Loaded = true;
       }),
     ]);
 
@@ -67,9 +72,8 @@
 
 <Sidebar.Provider>
   <AppSidebar />
-
-  <Sidebar.Inset>
-    <header class="flex h-16 shrink-0 items-center gap-2 px-4">
+  <Sidebar.Inset class="w-full">
+    <header class="flex h-16 items-center gap-2 px-4">
       <div class="flex items-center gap-2">
         <Sidebar.Trigger class="-ml-1" />
         <Separator orientation="vertical" class="mr-2 h-4" />
@@ -92,15 +96,18 @@
 
     <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
       <!-- Camera 1 -->
-      <div class="grid grid-cols-3 gap-4">
-        <CameraFeed
-          cameraName="Camera 1" 
-          bind:videoElement={videoElement1}
-          bind:canvasElement={canvasElement1}
-          bind:fps={fps1}
-          time={$time}
-          locations={locations1}
-        />
+      <div class="grid auto-rows-min gap-4 lg:grid-cols-3">
+        <div class="lg:col-span-2">
+          <CameraFeed
+            cameraName="Camera 1" 
+            bind:videoElement={videoElement1}
+            bind:canvasElement={canvasElement1}
+            bind:fps={fps1}
+            time={$time}
+            locations={locations1}
+            isLoaded={camera1Loaded}
+          />
+        </div>
 
         <StatisticsCard
           title="Camera 1 Statistics"
@@ -113,15 +120,18 @@
       </div>
 
       <!-- Camera 2 -->
-      <div class="grid grid-cols-3 gap-4 mt-6">
-        <CameraFeed
-          cameraName="Camera 2"
-          bind:videoElement={videoElement2}
-          bind:canvasElement={canvasElement2}
-          bind:fps={fps2}
-          time={$time}
-          locations={locations2}
-        />
+      <div class="grid auto-rows-min gap-4 lg:grid-cols-3 mt-6">
+        <div class="lg:col-span-2">
+          <CameraFeed
+            cameraName="Camera 2"
+            bind:videoElement={videoElement2}
+            bind:canvasElement={canvasElement2}
+            bind:fps={fps2}
+            time={$time}
+            locations={locations2}
+            isLoaded={camera2Loaded}
+          />
+        </div>
 
         <StatisticsCard
           title="Camera 2 Statistics"

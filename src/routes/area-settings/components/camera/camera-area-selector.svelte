@@ -23,6 +23,8 @@
 
   let mounted = false;
   let cameraReady = false;
+  let isLoaded = false;
+  let isInitializing = true; // tambahkan state ini
   let activeCameraId: number | null = null;
   let previousCameraId = cameraId;
 
@@ -94,6 +96,8 @@
 
   async function enableCamera() {
     cameraReady = false;
+    isLoaded = false;
+    isInitializing = true; // set true saat mulai load
     activeCameraId = null;
 
     rect = null;
@@ -136,6 +140,11 @@
 
     startDrawLoop();
     loadRect();
+  }
+
+  function onVideoLoaded() {
+    isLoaded = true;
+    isInitializing = false; // set false saat video loaded
   }
 
   function resizeCanvas() {
@@ -230,11 +239,13 @@
   onMount(async () => {
     mounted = true;
     await tick();
+    video.addEventListener("loadedmetadata", onVideoLoaded);
     enableCamera();
   });
 
   onDestroy(() => {
     mounted = false;
+    video?.removeEventListener("loadedmetadata", onVideoLoaded);
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
     if (stream) stream.getTracks().forEach(t => t.stop());
   });
@@ -249,15 +260,31 @@
   }
 </script>
 
-<div class="relative w-full max-w-2xl mx-auto">
-  <video bind:this={video} class="rounded-lg w-full" autoplay muted playsinline></video>
+<div class="relative w-full max-w-3xl mx-auto">
+  {#if isInitializing}
+      <div class="w-full aspect-video bg-muted rounded-lg flex items-center justify-center">
+          <div class="flex flex-col items-center gap-2">
+              <p class="text-sm text-muted-foreground">Loading camera...</p>
+          </div>
+      </div>
+  {/if}
+
+  <video 
+      bind:this={video} 
+      class="rounded-lg w-full" 
+      class:hidden={isInitializing}
+      autoplay 
+      muted 
+      playsinline
+  ></video>
   <canvas
-    bind:this={canvas}
-    class="absolute top-0 left-0 w-full h-full cursor-crosshair"
-    on:mousedown={down}
-    on:mousemove={move}
-    on:mouseup={up}
-    on:mouseleave={up}
+      bind:this={canvas}
+      class="absolute top-0 left-0 w-full h-full cursor-crosshair"
+      class:hidden={isInitializing}
+      on:mousedown={down}
+      on:mousemove={move}
+      on:mouseup={up}
+      on:mouseleave={up}
   ></canvas>
 </div>
 

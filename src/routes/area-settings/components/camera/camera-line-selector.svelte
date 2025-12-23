@@ -24,6 +24,8 @@
 
     let mounted = false;
     let cameraReady = false;
+    let isLoaded = false;
+    let isInitializing = true
     let previousCameraId = cameraId;
 
     let animationFrameId: number | null = null;
@@ -33,6 +35,8 @@
 
     async function enableCamera() {
         cameraReady = false;
+        isLoaded = false;
+        isInitializing = true; 
         current = null;
 
         if (animationFrameId) {
@@ -71,6 +75,11 @@
         startDrawLoop();
     }
 
+    function onVideoLoaded() {
+        isLoaded = true;
+        isInitializing = false;
+    }
+
     function resizeCanvas() {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -105,13 +114,10 @@
         const currentCameraLines = lines.filter(l => l.camera_id === cameraId);
 
         for (const l of currentCameraLines) {
-            // line yang sedang diedit = hijau
-            // line lainnya = merah
             const color = l.name === lineName ? "lime" : "red";
             drawLine(denormalize(l), color);
         }
 
-        // line yang sedang digambar = kuning
         if (current) {
             drawLine(current, "yellow");
         }
@@ -169,14 +175,16 @@
     onMount(async () => {
         mounted = true;
         await tick();
+        video.addEventListener("loadedmetadata", onVideoLoaded);
         enableCamera();
     });
 
     onDestroy(() => {
         mounted = false;
+        video?.removeEventListener("loadedmetadata", onVideoLoaded);
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         if (stream) stream.getTracks().forEach(t => t.stop());
-        if (pc) pc.close();
+        if (pc) pc.close();	
     });
 
     $: if (mounted && cameraId !== previousCameraId) {
@@ -185,11 +193,27 @@
     }
 </script>
 
-<div class="relative w-full max-w-2xl mx-auto">
-    <video bind:this={video} class="rounded-lg w-full" autoplay muted playsinline></video>
+<div class="relative w-full max-w-3xl mx-auto">
+    {#if isInitializing}
+        <div class="w-full aspect-video bg-muted rounded-lg flex items-center justify-center">
+            <div class="flex flex-col items-center gap-2">
+                <p class="text-sm text-muted-foreground">Loading camera...</p>
+            </div>
+        </div>
+    {/if}
+
+    <video 
+        bind:this={video} 
+        class="rounded-lg w-full" 
+        class:hidden={isInitializing}
+        autoplay 
+        muted 
+        playsinline
+    ></video>
     <canvas
         bind:this={canvas}
         class="absolute top-0 left-0 w-full h-full cursor-crosshair"
+        class:hidden={isInitializing}
         on:mousedown={down}
         on:mousemove={move}
         on:mouseup={up}
@@ -198,7 +222,5 @@
 </div>
 
 <div class="mt-2 flex justify-end">
-    <button on:click={clear} type="button" class="text-sm text-muted-foreground hover:text-foreground">
-        Clear Drawing
-    </button>
+    <button on:click={clear}>Clear Drawing</button>
 </div>
