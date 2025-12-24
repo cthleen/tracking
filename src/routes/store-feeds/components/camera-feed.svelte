@@ -30,11 +30,11 @@
   const STYLES = {
     box: {
       strokeColor: "lime",
-      lineWidth: 3,
+      lineWidth: 2,
       fillColor: "rgba(0, 255, 0, 0.15)"
     },
     label: {
-      font: "bold 20px Arial",
+      font: "bold 18px Arial",
       textColor: "#fff",
       backgroundColor: "rgba(0,0,0,0.7)",
       padding: 4
