@@ -41,7 +41,7 @@
   <Card.Content class="max-h-[260px] overflow-y-auto">
     {#if isLoading}
       <!-- Loading -->
-      <div class="flex items-center justify-center h-[200px] text-muted-foreground">
+      <div class="flex items-center justify-center h-[250px] text-muted-foreground">
         <div class="flex flex-col items-center gap-2">
           <RefreshCw class="animate-spin w-6 h-6" />
           <p class="text-sm font-medium">Loading activity</p>
@@ -50,7 +50,7 @@
 
     {:else if !hasAnyActivity}
       <!-- No activity -->
-      <div class="flex items-center justify-center h-[200px] text-muted-foreground">
+      <div class="flex items-center justify-center h-[250px] text-muted-foreground">
         <div class="text-center space-y-1">
           <p class="text-base font-medium text-foreground">
             No recent activity

@@ -20,9 +20,12 @@
 
   let ctx: CanvasRenderingContext2D | null = null;
   let animationFrameId: number | null = null;
+  let resizeObserver: ResizeObserver;
 
   let frameCount = 0;
   let lastTime = performance.now();
+
+  let aspectRatio = 9 / 16;
 
   const STYLES = {
     box: {
@@ -51,25 +54,24 @@
     };
   }
 
-  let resizeObserver: ResizeObserver;
-
   function resizeCanvas() {
     if (!videoElement || !canvasElement) return;
     if (!videoElement.videoWidth || !videoElement.videoHeight) return;
 
-    const videoWidth = videoElement.videoWidth;
-    const videoHeight = videoElement.videoHeight;
+    canvasElement.width = videoElement.videoWidth;
+    canvasElement.height = videoElement.videoHeight;
 
-    canvasElement.width = videoWidth;
-    canvasElement.height = videoHeight;
+    const rect = videoElement.getBoundingClientRect();
+    canvasElement.style.width = rect.width + "px";
+    canvasElement.style.height = rect.height + "px";
 
-    ctx = canvasElement.getContext('2d');
+    ctx = canvasElement.getContext("2d");
+    ctx?.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   function calculateFPS() {
     frameCount++;
     const now = performance.now();
-
     if (now - lastTime >= 1000) {
       fps = frameCount;
       frameCount = 0;
@@ -79,26 +81,22 @@
 
   function drawLabel(text: string, x: number, y: number) {
     if (!ctx) return;
-
     ctx.font = STYLES.label.font;
     ctx.textBaseline = "top";
 
     const pad = STYLES.label.padding;
-    const textWidth = ctx.measureText(text).width;
-    const textHeight = 16;
-
-    const labelY = y - textHeight - 6 < 0 ? y + 4 : y - textHeight - 6;
+    const w = ctx.measureText(text).width;
+    const h = 16;
+    const labelY = y - h - 6 < 0 ? y + 4 : y - h - 6;
 
     ctx.fillStyle = STYLES.label.backgroundColor;
-    ctx.fillRect(x, labelY, textWidth + pad * 2, textHeight + pad);
-
+    ctx.fillRect(x, labelY, w + pad * 2, h + pad);
     ctx.fillStyle = STYLES.label.textColor;
     ctx.fillText(text, x + pad, labelY + pad / 2);
   }
 
   function drawBoundingBox(loc: typeof locations[0]) {
     if (!ctx) return;
-
     const p = denormalize(loc);
 
     const x1 = clamp(p.x1, 0, canvasElement.width);
@@ -113,7 +111,6 @@
     ctx.strokeStyle = STYLES.box.strokeColor;
     ctx.lineWidth = STYLES.box.lineWidth;
     ctx.strokeRect(x1, y1, w, h);
-
     ctx.fillStyle = STYLES.box.fillColor;
     ctx.fillRect(x1, y1, w, h);
 
@@ -121,53 +118,47 @@
   }
 
   function draw() {
-    if (!ctx || !videoElement || !canvasElement) return;
-
     animationFrameId = requestAnimationFrame(draw);
+    if (!ctx) return;
 
     ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
     locations.forEach(drawBoundingBox);
-
     calculateFPS();
   }
 
   function start() {
+    aspectRatio = videoElement.videoHeight / videoElement.videoWidth;
+    isLoaded = true;
     resizeCanvas();
     animationFrameId = requestAnimationFrame(draw);
   }
 
   onMount(() => {
-    videoElement.addEventListener("inedmetadata", start);
-    
-    resizeObserver = new ResizeObserver(() => {
-      if (videoElement.videoWidth && videoElement.videoHeight) {
-        resizeCanvas();
-      }
-    });
-    
+    videoElement.addEventListener("loadedmetadata", start);
+
+    resizeObserver = new ResizeObserver(resizeCanvas);
     resizeObserver.observe(videoElement);
   });
 
   onDestroy(() => {
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
-    if (resizeObserver) resizeObserver.disconnect();
+    resizeObserver?.disconnect();
   });
 </script>
 
-<div class="bg-muted/50 rounded-xl p-4 flex flex-col gap-2 w-full h-full">
+<div class="bg-muted/50 rounded-xl p-4 flex flex-col gap-2 w-full">
   <div class="flex justify-between items-center">
     <h2 class="font-semibold text-lg">{cameraName}</h2>
     <span class="text-sm text-gray-500">{time}</span>
   </div>
 
-  <div class="relative w-full aspect-video bg-muted rounded-lg overflow-hidden">
+  <div
+    class="relative w-full rounded-lg overflow-hidden bg-muted"
+    style="padding-bottom: {aspectRatio * 100}%"
+  >
     {#if !isLoaded}
-      <div class="absolute inset-0 flex items-center justify-center bg-muted">
-        <div class="flex flex-col items-center gap-2">
-          <!-- <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div> -->
-          <p class="text-sm text-muted-foreground">Loading camera...</p>
-        </div>
+      <div class="absolute inset-0 flex items-center justify-center z-10">
+        <p class="text-sm text-muted-foreground">Loading camera...</p>
       </div>
     {/if}
 
@@ -176,15 +167,12 @@
       autoplay
       playsinline
       muted
-      class="rounded-lg w-full h-full object-contain"
-      class:invisible={!isLoaded}
-    ></video>
+      class="absolute inset-0 w-full h-full object-contain rounded-lg"
+    />
 
     <canvas
       bind:this={canvasElement}
-      class="absolute inset-0 w-full h-full rounded-lg pointer-events-none"
-      class:invisible={!isLoaded}
-    ></canvas>
+      class="absolute inset-0 pointer-events-none rounded-lg"
+    />
   </div>
 </div>
-
