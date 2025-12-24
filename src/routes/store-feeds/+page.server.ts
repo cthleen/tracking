@@ -1,13 +1,13 @@
 import type { PageServerLoad } from './$types';
 import type { Location, GenderCounts } from './utils/types';
 
-const BASE_URL = 'http://localhost:8000/api';
+const BASE_URL = 'http://localhost:8000';
 const CAMERA_1_ID = 1;
 const CAMERA_2_ID = 2;
 
 async function fetchLocations(fetch: typeof globalThis.fetch): Promise<{ locations: Location[], areas: Location[], lines: Location[] }> {
     try {
-        const res = await fetch(`${BASE_URL}/location`);
+        const res = await fetch(`${BASE_URL}/api/location`);
         if (!res.ok) {
             console.error('Failed to load locations:', res.status);
             return { 
@@ -70,7 +70,7 @@ async function fetchLocationGenderCounts(
     end: string
 ): Promise<GenderCounts> {
     try {
-        const url = `${BASE_URL}/location/${locationId}/customer-count?start=${start}&end=${end}&interval=hour`;
+        const url = `${BASE_URL}/api/location/${locationId}/customer-count?start=${start}&end=${end}&interval=hour`;
         const res = await fetch(url);
 
         if (!res.ok) {
